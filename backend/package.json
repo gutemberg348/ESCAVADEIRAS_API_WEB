@@ -1,0 +1,36 @@
+{
+  "name": "@empimecatronic/backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "seed": "prisma db seed",
+    "simulate": "node scripts/telemetry-simulator.js",
+    "test:integration": "node scripts/verify-rfid-flow.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "engine.io": "6.6.11",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "mqtt": "^5.10.4",
+    "pino": "^9.7.0",
+    "pino-http": "^10.5.0",
+    "socket.io": "4.8.4",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "prisma": "^6.7.0"
+  }
+}

@@ -1,0 +1,2 @@
+import { Router } from 'express'; import { authenticate } from '../../middlewares/auth.middleware.js'; import { machineService } from '../machines/machine.service.js'; import { telemetryService } from './telemetry.service.js';
+export const telemetryRouter=Router(); telemetryRouter.use(authenticate); telemetryRouter.get('/machines/:machineId',async(req,res)=>{ await machineService.get(req.user,req.params.machineId); res.json(await telemetryService.history(req.params.machineId,Math.min(Number(req.query.limit)||100,500))); });

@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  DRIVER
+}
+
+enum MachineStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ALERT
+  DISABLED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum CommandStatus {
+  PENDING
+  PUBLISHED
+  RECEIVED
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+model Company {
+  id        String    @id @default(uuid())
+  name      String
+  document  String?   @unique
+  active    Boolean   @default(true)
+  users     User[]
+  machines  Machine[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model User {
+  id            String         @id @default(uuid())
+  companyId     String?
+  company       Company?       @relation(fields: [companyId], references: [id])
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role
+  active        Boolean        @default(true)
+  driverProfile DriverProfile?
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model DriverProfile {
+  id          String                    @id @default(uuid())
+  userId      String                    @unique
+  user        User                      @relation(fields: [userId], references: [id])
+  phone       String?
+  rfidCards   RfidCard[]
+  assignments DriverMachineAssignment[]
+}
+
+model Machine {
+  id           String                    @id @default(uuid())
+  companyId    String
+  company      Company                   @relation(fields: [companyId], references: [id])
+  name         String
+  code         String                    @unique
+  serialNumber String?
+  brand        String?
+  model        String?
+  year         Int?
+  status       MachineStatus             @default(OFFLINE)
+  active       Boolean                   @default(true)
+  device       Device?
+  telemetry    Telemetry[]
+  currentState MachineCurrentState?
+  alerts       Alert[]
+  commands     Command[]
+  assignments  DriverMachineAssignment[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([companyId, status])
+}
+
+model Device {
+  id              String      @id @default(uuid())
+  machineId       String      @unique
+  machine         Machine     @relation(fields: [machineId], references: [id])
+  deviceCode      String      @unique
+  hardwareSerial  String?     @unique
+  firmwareVersion String?
+  mqttClientId    String      @unique
+  mqttUsername    String?     @unique
+  credentialHash  String?
+  bleSecret       String?
+  hardwareConfig  Json?
+  provisionedAt   DateTime?
+  revokedAt       DateTime?
+  active          Boolean     @default(true)
+  lastSeenAt      DateTime?
+  telemetry       Telemetry[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([deviceCode])
+}
+
+model RfidCard {
+  id              String        @id @default(uuid())
+  driverProfileId String
+  driverProfile   DriverProfile @relation(fields: [driverProfileId], references: [id])
+  code            String        @unique
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model DriverMachineAssignment {
+  id              String        @id @default(uuid())
+  driverProfileId String
+  machineId       String
+  driverProfile   DriverProfile @relation(fields: [driverProfileId], references: [id])
+  machine         Machine       @relation(fields: [machineId], references: [id])
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
+
+  @@index([machineId, endedAt])
+}
+
+model Telemetry {
+  id             String   @id @default(uuid())
+  machineId      String
+  deviceId       String
+  machine        Machine  @relation(fields: [machineId], references: [id])
+  device         Device   @relation(fields: [deviceId], references: [id])
+  timestamp      DateTime
+  latitude       Float?
+  longitude      Float?
+  speed          Float?
+  voltage        Float?
+  current        Float?
+  signalStrength Int?
+  gpsSatellites  Int?
+  rfidCode       String?
+  engineState    Boolean?
+  relayState     Boolean?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([machineId, timestamp])
+  @@index([deviceId, timestamp])
+}
+
+model MachineCurrentState {
+  id             String   @id @default(uuid())
+  machineId      String   @unique
+  machine        Machine  @relation(fields: [machineId], references: [id])
+  online         Boolean  @default(false)
+  latitude       Float?
+  longitude      Float?
+  speed          Float?
+  voltage        Float?
+  current        Float?
+  signalStrength Int?
+  gpsValid       Boolean  @default(false)
+  gpsUpdatedAt   DateTime?
+  rfidCode       String?
+  rfidStatus     String   @default("AWAITING_CARD")
+  deviceBootId   String?
+  gatewaySampleAt DateTime?
+  updatedAt      DateTime @updatedAt
+}
+
+model Alert {
+  id             String        @id @default(uuid())
+  machineId      String
+  machine        Machine       @relation(fields: [machineId], references: [id])
+  severity       AlertSeverity
+  type           String
+  message        String
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  createdAt      DateTime      @default(now())
+
+  @@index([machineId, createdAt])
+}
+
+model Command {
+  id        String         @id @default(uuid())
+  machineId String
+  machine   Machine        @relation(fields: [machineId], references: [id])
+  type      String
+  payload   Json?
+  status    CommandStatus  @default(PENDING)
+  expiresAt DateTime?
+  events    CommandEvent[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model CommandEvent {
+  id        String        @id @default(uuid())
+  commandId String
+  command   Command       @relation(fields: [commandId], references: [id])
+  status    CommandStatus
+  metadata  Json?
+  createdAt DateTime      @default(now())
+}
+
+model GatewayReceipt {
+  id         String   @id @default(uuid())
+  deviceId   String
+  eventId    String
+  receivedAt DateTime @default(now())
+  @@unique([deviceId, eventId])
+}
+
+model FirmwareVersion {
+  id        String   @id @default(uuid())
+  version   String   @unique
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}

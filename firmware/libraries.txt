@@ -1,0 +1,6 @@
+ArduinoJson by Benoit Blanchon (7.x)
+PubSubClient by Nick O'Leary (2.8+)
+TinyGPSPlus by Mikal Hart (1.0.3+)
+MFRC522 by GithubCommunity (1.4.12+)
+
+WiFi e SPI fazem parte do pacote esp32 by Espressif Systems.

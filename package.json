@@ -1,0 +1,22 @@
+{
+  "name": "empimecatronic-iot-platform",
+  "private": true,
+  "workspaces": ["backend", "admin-web", "driver-app"],
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "engine.io": "6.6.11",
+    "postcss": "8.5.24",
+    "image-size": "2.0.3",
+    "deepmerge-ts": "8.0.2"
+  },
+  "devDependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "scripts": {
+    "dev:api": "npm run dev --workspace=backend",
+    "dev:admin": "npm run dev --workspace=admin-web",
+    "dev:driver": "npm run start --workspace=driver-app"
+  }
+}

@@ -1,0 +1,2 @@
+import { ArrowUpRight } from 'lucide-react';
+export default function TelemetryCard({label,value,unit,icon:Icon,detail}){return <article className="telemetry-card"><div className="telemetry-icon">{Icon?<Icon size={20}/>:<ArrowUpRight size={20}/>}</div><div className="telemetry-copy"><span>{label}</span><strong>{value??'—'} <em>{value!==null&&value!==undefined?unit:''}</em></strong><small>{detail||'Leitura mais recente'}</small></div></article>}

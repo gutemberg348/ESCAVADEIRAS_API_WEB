@@ -1,0 +1,5 @@
+TechCode_Escavadeira/src/config/provisioned_config.h
+network.local.json
+provisioning.local.json
+build/
+.arduinoIDE/

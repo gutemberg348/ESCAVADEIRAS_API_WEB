@@ -1,0 +1,123 @@
+name: empimecatronic
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?configure POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?configure POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?configure POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./docker/mosquitto.production.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks: [internal]
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      MQTT_URL: mqtt://mqtt:1883
+      JWT_SECRET: ${JWT_SECRET:?configure JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: https://${ADMIN_DOMAIN:?configure ADMIN_DOMAIN}
+      OFFLINE_AFTER_SECONDS: ${OFFLINE_AFTER_SECONDS:-120}
+      ALLOW_UNPROVISIONED_DEVICES: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "127.0.0.1:13000:3000"
+    networks: [internal, web]
+
+  admin:
+    build:
+      context: .
+      dockerfile: admin-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}/api/v1
+        NEXT_PUBLIC_SOCKET_URL: https://${API_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:13001:3001"
+    networks: [web]
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?configure API_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?configure ADMIN_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?configure ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      admin:
+        condition: service_started
+    networks: [web]
+
+networks:
+  internal:
+    internal: true
+  web:
+
+volumes:
+  postgres_data:
+  redis_data:
+  mosquitto_data:
+  caddy_data:
+  caddy_config:
+

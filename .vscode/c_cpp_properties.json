@@ -1,0 +1,29 @@
+{
+  "configurations": [
+    {
+      "name": "ESP32 Arduino",
+      "compilerPath": "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-g++.exe",
+      "includePath": [
+        "${workspaceFolder}/firmware/TechCode_Escavadeira",
+        "${workspaceFolder}/firmware/TechCode_Escavadeira/**",
+        "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.12/cores/esp32",
+        "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.12/variants/esp32",
+        "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.12/libraries/**",
+        "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/tools/esp32-libs/3.3.12/include/**",
+        "C:/Users/GUTOO/Documents/Arduino/libraries/**"
+      ],
+      "forcedInclude": [
+        "C:/Users/GUTOO/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.12/cores/esp32/Arduino.h"
+      ],
+      "defines": [
+        "ARDUINO=10819",
+        "ARDUINO_ARCH_ESP32",
+        "ESP32"
+      ],
+      "cStandard": "c17",
+      "cppStandard": "gnu++17",
+      "intelliSenseMode": "windows-gcc-x64"
+    }
+  ],
+  "version": 4
+}

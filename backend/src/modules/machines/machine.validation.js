@@ -1,0 +1,2 @@
+import { z } from 'zod';
+export const machineSchema = z.object({ companyId: z.string().uuid().optional(), name: z.string().min(2), code: z.string().min(3).max(40).toUpperCase(), serialNumber: z.string().optional(), brand: z.string().optional(), model: z.string().optional(), year: z.coerce.number().int().min(1950).max(2100).optional(), status: z.enum(['ONLINE','OFFLINE','MAINTENANCE','ALERT','DISABLED']).optional(), active: z.boolean().optional() });

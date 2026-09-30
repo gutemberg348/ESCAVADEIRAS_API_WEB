@@ -1,0 +1,20 @@
+{
+  "device": {
+    "code": "DEV-ESC-001",
+    "token": "replace-with-one-time-token-from-admin",
+    "hardwareSerial": "ESP32-DEMO-001",
+    "hardwareConfig": {
+      "telemetryIntervalMs": 1000,
+      "heartbeatIntervalMs": 30000,
+      "voltageScale": 5,
+      "currentZeroMv": 390,
+      "currentSensitivityMvA": 0
+    }
+  },
+  "mqtt": {
+    "url": "mqtt://192.168.1.10:1883",
+    "clientId": "empimecatronic-dev-esc-001",
+    "username": "DEV-ESC-001",
+    "password": "replace-with-one-time-token-from-admin"
+  }
+}
