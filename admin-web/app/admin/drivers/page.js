@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ContactRound,
@@ -23,6 +24,7 @@ import { request } from "../../../services/api";
 import { machines as loadMachines } from "../../../services/machine.service";
 
 export default function DriversPage() {
+  const router = useRouter();
   const [creating, setCreating] = useState(false),
     [drivers, setDrivers] = useState([]),
     [machines, setMachines] = useState([]),
@@ -199,7 +201,12 @@ export default function DriversPage() {
                     {assignment ? "Em operação" : "Disponível"}
                   </span>
                 </div>
-                <div className="driver-assignment">
+                <details className="driver-assignment">
+                  <summary>Vínculo manual de contingência</summary>
+                  <p>
+                    Use somente se a leitura do cartão na máquina estiver
+                    indisponível.
+                  </p>
                   <label>
                     <span>VÍNCULO MANUAL (OPCIONAL)</span>
                     <select
@@ -230,7 +237,7 @@ export default function DriversPage() {
                     <Link2 size={15} />
                     {saving === driver.id ? "Salvando..." : "Confirmar vínculo"}
                   </button>
-                </div>
+                </details>
                 <div className="driver-card-actions">
                   <Link href={`/admin/rfid?driver=${driver.id}`}>
                     <CreditCard size={15} />
@@ -272,8 +279,12 @@ export default function DriversPage() {
             aria-label="Cadastrar operador"
           >
             <DriverCreateForm
-              onCreated={() => {
+              onCreated={(profileId) => {
                 setCreating(false);
+                if (profileId) {
+                  router.push(`/admin/rfid?driver=${profileId}`);
+                  return;
+                }
                 load();
               }}
               onCancel={() => setCreating(false)}

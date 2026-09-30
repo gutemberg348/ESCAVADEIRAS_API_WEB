@@ -23,7 +23,7 @@ function firmwareManifest(device, credential) {
   };
   return {
     generatedAt: new Date().toISOString(),
-    warning: 'Esta credencial aparece somente agora. Gere provisioned_config.h com firmware/tools/provision.mjs e grave o sketch no ESP32.',
+    warning: 'Esta credencial aparece somente agora. No painel, use Configurar pela USB logo após gravar o firmware-base. O fluxo Arduino permanece disponível como contingência.',
     device: {
       id: device.id,
       code: device.deviceCode,

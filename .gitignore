@@ -22,6 +22,9 @@ backend/prisma/dev.db
 *.crt
 *.p12
 firmware/TechCode_Escavadeira/src/config/provisioned_config.h
+firmware/TechCode_Escavadeira/src/config/provisioned_config.local.bak
 firmware/network.local.json
 firmware/provisioning.local.json
 firmware/build/
+firmware/build-*/
+driver-app/.expo-validation/

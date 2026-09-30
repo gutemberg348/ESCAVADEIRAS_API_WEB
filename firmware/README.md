@@ -8,6 +8,19 @@ Fluxo de cadastro por USB/RC522, identificação do operador, GPS e testes: [gui
 
 O modo padrão agora é BLE: ESP32 → celular Android → servidor, com fila offline no celular. Consulte [Bluetooth e Android offline](../docs/bluetooth-offline-android.md). Não exige senha de Wi-Fi no ESP32. Prepare o manifesto com `--ble`. O firmware já provisionado pode sobrescrever o padrão pelo macro `EMP_USE_BLE`.
 
+## Instalação pelo painel (fluxo recomendado)
+
+No Chrome ou Edge do computador, abra **Admin → Dispositivos ESP32**:
+
+1. conecte a placa pela USB e use **Conectar e gravar** para instalar o firmware-base;
+2. cadastre a escavadeira e vincule um novo dispositivo a ela;
+3. enquanto a credencial de uso único estiver na tela, use **Configurar pela USB**;
+4. aguarde a confirmação e desconecte a placa do computador;
+5. instale o módulo na escavadeira e alimente-o por uma fonte automotiva protegida de 12/24 V para 5 V — nunca ligue 12/24 V diretamente no ESP32;
+6. em operação, o ESP32 conversa por Bluetooth com o Android. O computador não acompanha a máquina.
+
+O RC522 ligado ao ESP32 também pode ser usado para cadastrar cartões no painel. Em **Cartões RFID**, escolha o ESP32 conectado ao computador, feche o Monitor Serial da Arduino IDE, clique em **Conectar leitor** e aproxime o cartão. O UID é capturado automaticamente; a digitação manual é apenas contingência.
+
 ## Comunicação Wi-Fi/MQTT (alternativa com EMP_USE_BLE=0)
 
 As instruções abaixo descrevem o caminho alternativo Wi-Fi/MQTT. No modo BLE, use o guia acima e o APK instalado.

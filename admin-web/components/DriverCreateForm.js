@@ -35,8 +35,11 @@ export default function DriverCreateForm({ onCreated, onCancel }) {
     try {
       const body = { ...form };
       if (!body.phone.trim()) delete body.phone;
-      await request("/drivers", { method: "POST", body: JSON.stringify(body) });
-      onCreated();
+      const created = await request("/drivers", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      onCreated(created.driverProfile?.id || created.id);
     } catch (err) {
       setError(err.message);
     } finally {

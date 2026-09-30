@@ -46,7 +46,7 @@ export default function NewMachinePage() {
       );
       if (payload.year) payload.year = Number(payload.year);
       const created = await createMachine(payload);
-      router.push(`/admin/machines/${created.id}`);
+      router.push(`/admin/devices?machine=${created.id}`);
     } catch (err) {
       setError(err.message);
       setSaving(false);

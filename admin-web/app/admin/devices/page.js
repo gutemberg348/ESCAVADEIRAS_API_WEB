@@ -17,6 +17,8 @@ import StatusBadge from "../../../components/StatusBadge";
 import { ErrorState, LoadingState } from "../../../components/States";
 import { request } from "../../../services/api";
 import { machines as loadMachines } from "../../../services/machine.service";
+import UsbProvisioner from "../../../components/UsbProvisioner";
+import FirmwareInstaller from "../../../components/FirmwareInstaller";
 
 const initialForm = { machineId: "", deviceCode: "", hardwareSerial: "" };
 
@@ -38,6 +40,21 @@ export default function DevicesPage() {
       ]);
       setDevices(deviceResult || []);
       setMachines(machineResult.data || []);
+      const requestedMachine = new URLSearchParams(window.location.search).get(
+        "machine",
+      );
+      if (
+        requestedMachine &&
+        (machineResult.data || []).some(
+          (machine) =>
+            machine.id === requestedMachine &&
+            !(deviceResult || []).some(
+              (device) => device.machineId === requestedMachine,
+            ),
+        )
+      ) {
+        setForm((current) => ({ ...current, machineId: requestedMachine }));
+      }
     } catch (loadError) {
       setError(loadError.message);
     } finally {
@@ -121,12 +138,37 @@ export default function DevicesPage() {
         description="Vincule cada módulo a uma máquina e gere sua identidade MQTT individual."
       />
       <section className="setup-steps" aria-label="Etapas de instalação">
-        <div><b>1</b><span><strong>Cadastre a escavadeira</strong><small>Crie o ativo em Escavadeiras.</small></span></div>
-        <div><b>2</b><span><strong>Vincule o ESP32</strong><small>Selecione abaixo a máquina correta.</small></span></div>
-        <div><b>3</b><span><strong>Grave a configuração</strong><small>Baixe o JSON e instale no firmware.</small></span></div>
-        <div><b>4</b><span><strong>Teste no campo</strong><small>Confirme Bluetooth, GPS e RFID.</small></span></div>
+        <div>
+          <b>1</b>
+          <span>
+            <strong>Cadastre a escavadeira</strong>
+            <small>Crie o ativo em Escavadeiras.</small>
+          </span>
+        </div>
+        <div>
+          <b>2</b>
+          <span>
+            <strong>Vincule o ESP32</strong>
+            <small>Selecione abaixo a máquina correta.</small>
+          </span>
+        </div>
+        <div>
+          <b>3</b>
+          <span>
+            <strong>Grave a configuração</strong>
+            <small>Baixe o JSON e instale no firmware.</small>
+          </span>
+        </div>
+        <div>
+          <b>4</b>
+          <span>
+            <strong>Teste no campo</strong>
+            <small>Confirme Bluetooth, GPS e RFID.</small>
+          </span>
+        </div>
       </section>
       {error && <ErrorState message={error} onRetry={load} />}
+      <FirmwareInstaller />
       <section className="device-workspace">
         <form
           className="surface-panel provisioning-form"
@@ -232,6 +274,7 @@ export default function DevicesPage() {
                 />
                 <Field label="BROKER" value={provisioning.mqtt.url} />
               </div>
+              <UsbProvisioner provisioning={provisioning} />
               <div className="credential-actions">
                 <button
                   type="button"

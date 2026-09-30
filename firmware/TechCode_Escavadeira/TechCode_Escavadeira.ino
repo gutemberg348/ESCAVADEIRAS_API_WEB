@@ -7,6 +7,7 @@
 #include "src/relay/RelayService.h"
 #include "src/communication/AppCommunication.h"
 #include "src/diagnostic/DiagnosticService.h"
+#include "src/provisioning/ProvisioningService.h"
 
 TelemetryState telemetry;
 GpsService gps;
@@ -23,9 +24,10 @@ void setup() {
   Serial.begin(Config::SERIAL_BAUD);
   delay(250);
   Serial.println();
+  deviceIdentity.begin();
   Serial.println("================================================");
   Serial.println(" EMPIMECATRONIC · GUTO TECHCODE");
-  Serial.printf(" Firmware %s | Dispositivo %s\n", Config::FIRMWARE_VERSION, EMP_DEVICE_CODE);
+  Serial.printf(" Firmware %s | Dispositivo %s\n", Config::FIRMWARE_VERSION, deviceIdentity.deviceCode().c_str());
   Serial.println(" Arduino ESP32 · Inicialização modular");
   Serial.println("================================================");
 
@@ -41,6 +43,7 @@ void setup() {
 }
 
 void loop() {
+  deviceIdentity.update();
   gps.update(telemetry);
   electrical.update(telemetry);
   relay.update(telemetry);

@@ -297,7 +297,12 @@ function EmpimecatronicApp() {
           <ErrorBanner message={error} onRetry={refresh} theme={theme} styles={styles} />
         ) : null}
 
-        <BluetoothGateway key={session.user.id} session={session} theme={theme} />
+        <BluetoothGateway
+          key={session.user.id}
+          session={session}
+          machine={machine}
+          theme={theme}
+        />
 
         {loading && !machine ? (
           <LoadingState theme={theme} styles={styles} />

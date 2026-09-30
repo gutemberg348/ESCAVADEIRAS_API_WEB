@@ -2,6 +2,7 @@
 #if EMP_USE_BLE
 #include <esp_system.h>
 #include <mbedtls/md.h>
+#include "../provisioning/ProvisioningService.h"
 
 static const char* SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 static const char* BLE_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
@@ -9,7 +10,7 @@ static const char* BLE_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 void AppCommunication::begin() {
   bootId_ = String(esp_random(), HEX) + String(esp_random(), HEX);
-  BLEDevice::init(String("EMP-") + EMP_DEVICE_CODE);
+  BLEDevice::init(String("EMP-") + deviceIdentity.deviceCode());
   BLEDevice::setMTU(185);
   BLESecurity::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
   BLESecurity* security = new BLESecurity();
@@ -31,8 +32,8 @@ void AppCommunication::begin() {
   advertising->addServiceUUID(SERVICE);
   advertising->setScanResponse(true);
   advertising->start();
-  Serial.printf("[BLE] EMP-%s pronto. Pareie pelo app Android. Wi-Fi dispensado.\n", EMP_DEVICE_CODE);
-  if (String(EMP_DEVICE_TOKEN) == "development-unprovisioned-token") Serial.println("[BLE] PROVISIONE a credencial antes de sincronizar com o servidor");
+  Serial.printf("[BLE] EMP-%s pronto. Pareie pelo app Android. Wi-Fi dispensado.\n", deviceIdentity.deviceCode().c_str());
+  if (!deviceIdentity.provisioned()) Serial.println("[BLE] PROVISIONE a credencial antes de sincronizar com o servidor");
 }
 
 void AppCommunication::onConnect(BLEServer*) { connected_ = true; }
@@ -49,7 +50,7 @@ bool AppCommunication::enqueue(const char* kind, JsonDocument& data) {
   if (count_ >= 16) { Serial.println("[BLE] Buffer cheio; mantenha o app conectado para coletar"); return false; }
   JsonDocument frame;
   frame["v"] = 1;
-  frame["deviceCode"] = EMP_DEVICE_CODE;
+  frame["deviceCode"] = deviceIdentity.deviceCode();
   const String id = bootId_ + "-" + String(++sequence_);
   frame["eventId"] = id;
   frame["bootId"] = bootId_;
@@ -111,7 +112,8 @@ void AppCommunication::update(TelemetryState& state) {
     frame["ageMs"] = static_cast<uint32_t>(millis() - queue_[head_].queuedAt);
     String raw; serializeJson(frame, raw);
     unsigned char digest[32];
-    mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), reinterpret_cast<const unsigned char*>(EMP_DEVICE_TOKEN), strlen(EMP_DEVICE_TOKEN), reinterpret_cast<const unsigned char*>(raw.c_str()), raw.length(), digest);
+    const String& token = deviceIdentity.deviceToken();
+    mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), reinterpret_cast<const unsigned char*>(token.c_str()), token.length(), reinterpret_cast<const unsigned char*>(raw.c_str()), raw.length(), digest);
     char signature[65]; for (int i = 0; i < 32; i++) snprintf(signature + i * 2, 3, "%02x", digest[i]);
     JsonDocument envelope; envelope["raw"] = raw; envelope["signature"] = signature;
     wire_ = "\n"; serializeJson(envelope, wire_); wire_ += '\n'; offset_ = 0;
