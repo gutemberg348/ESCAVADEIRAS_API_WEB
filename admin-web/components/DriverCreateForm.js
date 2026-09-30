@@ -1,24 +1,151 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { request } from '../services/api';
-import CardCapture from './CardCapture';
+"use client";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff, Save, UserRound, X } from "lucide-react";
+import { request } from "../services/api";
 
 export default function DriverCreateForm({ onCreated, onCancel }) {
-  const [companies, setCompanies] = useState([]);
-  const [form, setForm] = useState({ name: '', email: '', password: '', companyId: '', phone: '', cardCode: '' });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  useEffect(() => { request('/companies').then(result => { const items = Array.isArray(result) ? result : result.data || []; setCompanies(items); if (items.length === 1) setForm(current => ({ ...current, companyId: items[0].id })); }).catch(err => setError(err.message)); }, []);
-  async function submit(event) {
-    event.preventDefault(); setSaving(true); setError('');
-    try { const body = { ...form }; if (!body.cardCode) delete body.cardCode; await request('/drivers', { method: 'POST', body: JSON.stringify(body) }); onCreated(); }
-    catch (err) { setError(err.message); }
-    finally { setSaving(false); }
+  const [companies, setCompanies] = useState([]),
+    [form, setForm] = useState({
+      name: "",
+      email: "",
+      password: "",
+      companyId: "",
+      phone: "",
+    });
+  const [showPassword, setShowPassword] = useState(false),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState("");
+  useEffect(() => {
+    request("/companies")
+      .then((result) => {
+        const items = Array.isArray(result) ? result : result.data || [];
+        setCompanies(items);
+        if (items.length === 1)
+          setForm((current) => ({ ...current, companyId: items[0].id }));
+      })
+      .catch((err) => setError(err.message));
+  }, []);
+  function change(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
   }
-  return <form className="surface-panel rfid-form driver-create" onSubmit={submit}><h2>Cadastrar motorista</h2><p className="capture-hint">Crie o acesso ao app e vincule o cartão agora ou depois.</p>
-    {['name', 'email', 'password', 'phone'].map((field, index) => <label key={field}><span>{['NOME', 'E-MAIL PARA LOGIN', 'SENHA INICIAL', 'TELEFONE'][index]}</span><input required={field !== 'phone'} type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'} minLength={field === 'password' ? 8 : undefined} autoComplete={field === 'password' ? 'new-password' : 'off'} value={form[field]} onChange={event => setForm({ ...form, [field]: event.target.value })}/></label>)}
-    <label><span>EMPRESA</span><select required value={form.companyId} onChange={event => setForm({ ...form, companyId: event.target.value })}><option value="">Selecione</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
-    <CardCapture value={form.cardCode} onChange={cardCode => setForm(current => ({ ...current, cardCode }))}/>
-    {error && <p className="form-error" role="alert">{error}</p>}<button disabled={saving}>{saving ? 'SALVANDO...' : 'CADASTRAR MOTORISTA'}</button><button type="button" className="secondary-action" onClick={onCancel}>Cancelar</button>
-  </form>;
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const body = { ...form };
+      if (!body.phone.trim()) delete body.phone;
+      await request("/drivers", { method: "POST", body: JSON.stringify(body) });
+      onCreated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <form className="surface-panel driver-create" onSubmit={submit}>
+      <div className="driver-create-head">
+        <span>
+          <UserRound size={22} />
+        </span>
+        <div>
+          <small>NOVO ACESSO</small>
+          <h2>Cadastrar operador</h2>
+          <p>
+            Crie o login do aplicativo. O cartão RFID poderá ser vinculado em
+            seguida.
+          </p>
+        </div>
+        <button type="button" aria-label="Fechar" onClick={onCancel}>
+          <X size={19} />
+        </button>
+      </div>
+      <div className="driver-form-grid">
+        <label>
+          <span>NOME COMPLETO *</span>
+          <input
+            autoFocus
+            required
+            minLength={2}
+            autoComplete="name"
+            placeholder="Nome do motorista"
+            value={form.name}
+            onChange={(event) => change("name", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>TELEFONE</span>
+          <input
+            type="tel"
+            autoComplete="tel"
+            placeholder="(00) 00000-0000"
+            value={form.phone}
+            onChange={(event) => change("phone", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>E-MAIL PARA LOGIN *</span>
+          <input
+            required
+            type="email"
+            autoComplete="email"
+            placeholder="operador@empresa.com"
+            value={form.email}
+            onChange={(event) => change("email", event.target.value)}
+          />
+        </label>
+        <label>
+          <span>SENHA INICIAL *</span>
+          <div className="password-field">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Mínimo de 8 caracteres"
+              value={form.password}
+              onChange={(event) => change("password", event.target.value)}
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              onClick={() => setShowPassword((current) => !current)}
+            >
+              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </div>
+        </label>
+        <label className="driver-company-field">
+          <span>EMPRESA *</span>
+          <select
+            required
+            value={form.companyId}
+            onChange={(event) => change("companyId", event.target.value)}
+          >
+            <option value="">Selecione a empresa</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="driver-create-actions">
+        <button type="button" className="secondary-action" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={saving}>
+          <Save size={16} />
+          {saving ? "Salvando..." : "Cadastrar operador"}
+        </button>
+      </div>
+    </form>
+  );
 }
