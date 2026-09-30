@@ -1,14 +1,24 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Copy, Cpu, Download, KeyRound, Link2, Radio, RotateCw, ShieldCheck } from 'lucide-react';
-import PageHeader from '../../../components/PageHeader';
-import StatusBadge from '../../../components/StatusBadge';
-import { ErrorState, LoadingState } from '../../../components/States';
-import { request } from '../../../services/api';
-import { machines as loadMachines } from '../../../services/machine.service';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  Copy,
+  Cpu,
+  Download,
+  KeyRound,
+  Link2,
+  Radio,
+  RotateCw,
+  ShieldCheck,
+} from "lucide-react";
+import PageHeader from "../../../components/PageHeader";
+import StatusBadge from "../../../components/StatusBadge";
+import { ErrorState, LoadingState } from "../../../components/States";
+import { request } from "../../../services/api";
+import { machines as loadMachines } from "../../../services/machine.service";
 
-const initialForm = { machineId: '', deviceCode: '', hardwareSerial: '' };
+const initialForm = { machineId: "", deviceCode: "", hardwareSerial: "" };
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState([]);
@@ -17,16 +27,332 @@ export default function DevicesPage() {
   const [provisioning, setProvisioning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const load = useCallback(async () => { setLoading(true); setError(''); try { const [deviceResult, machineResult] = await Promise.all([request('/devices'), loadMachines()]); setDevices(deviceResult || []); setMachines(machineResult.data || []); } catch (loadError) { setError(loadError.message); } finally { setLoading(false); } }, []);
-  useEffect(() => { load(); }, [load]);
-  const availableMachines = useMemo(() => machines.filter((machine) => !devices.some((device) => device.machineId === machine.id)), [machines, devices]);
-  async function createDevice(event) { event.preventDefault(); setSaving(true); setError(''); try { const result = await request('/devices', { method: 'POST', body: JSON.stringify({ ...form, hardwareSerial: form.hardwareSerial.trim() || undefined }) }); setProvisioning(result.provisioning); setForm(initialForm); await load(); } catch (saveError) { setError(saveError.message); } finally { setSaving(false); } }
-  async function rotate(deviceId) { if (!window.confirm('Gerar uma nova credencial? A credencial anterior deixará de funcionar.')) return; setSaving(true); setError(''); try { const result = await request(`/devices/${deviceId}/rotate-credentials`, { method: 'POST' }); setProvisioning(result.provisioning); await load(); } catch (rotateError) { setError(rotateError.message); } finally { setSaving(false); } }
-  function downloadManifest() { const blob = new Blob([JSON.stringify(provisioning, null, 2)], { type: 'application/json' }); const href = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = href; link.download = `${provisioning.device.code}-provisioning.json`; link.click(); URL.revokeObjectURL(href); }
-  if (loading) return <div className="admin-page"><LoadingState label="Carregando vínculos dos dispositivos..." /></div>;
-  return <div className="admin-page"><PageHeader eyebrow="IOT E PROVISIONAMENTO" title="Dispositivos ESP32" description="Vincule cada módulo a uma máquina e gere sua identidade MQTT individual." />{error && <ErrorState message={error} onRetry={load} />}<section className="device-workspace"><form className="surface-panel provisioning-form" onSubmit={createDevice}><div className="panel-header"><div><span className="eyebrow">NOVO VÍNCULO</span><h2>Instalar ESP32</h2></div><Link2 size={19} /></div><label><span>MÁQUINA SEM DISPOSITIVO</span><select required value={form.machineId} onChange={(event) => setForm({ ...form, machineId: event.target.value })}><option value="">Selecione a escavadeira</option>{availableMachines.map((machine) => <option key={machine.id} value={machine.id}>{machine.code} · {machine.name}</option>)}</select></label><label><span>CÓDIGO DO DISPOSITIVO</span><input required placeholder="DEV-ESC-005" value={form.deviceCode} onChange={(event) => setForm({ ...form, deviceCode: event.target.value.toUpperCase() })} /></label><label><span>SERIAL DO HARDWARE</span><input placeholder="ESP32-A1B2C3D4" value={form.hardwareSerial} onChange={(event) => setForm({ ...form, hardwareSerial: event.target.value })} /></label><button className="provision-button" disabled={saving || !availableMachines.length}><ShieldCheck size={16} />{saving ? 'GERANDO IDENTIDADE...' : 'VINCULAR E PROVISIONAR'}</button>{!availableMachines.length && <small className="form-hint">Todas as máquinas já possuem um dispositivo.</small>}</form><article className="surface-panel credential-panel"><div className="panel-header"><div><span className="eyebrow">CREDENCIAL DE INSTALAÇÃO</span><h2>{provisioning ? provisioning.device.code : 'Aguardando provisionamento'}</h2></div><KeyRound size={19} /></div>{provisioning ? <><div className="credential-warning"><CheckCircle2 size={18} /><p><b>Identidade criada com sucesso</b><span>Baixe agora. O token não poderá ser consultado novamente.</span></p></div><div className="credential-grid"><Field label="MQTT CLIENT ID" value={provisioning.mqtt.clientId} /><Field label="MQTT USUÁRIO" value={provisioning.mqtt.username} /><Field label="DEVICE TOKEN" value={provisioning.device.token} secret /><Field label="BROKER" value={provisioning.mqtt.url} /></div><div className="credential-actions"><button type="button" onClick={() => navigator.clipboard.writeText(JSON.stringify(provisioning, null, 2))}><Copy size={15} /> Copiar JSON</button><button type="button" className="primary" onClick={downloadManifest}><Download size={15} /> Baixar configuração</button></div></> : <div className="credential-empty"><Cpu size={28} /><p>Ao vincular um ESP32, o pacote com tópicos, usuário e token aparecerá aqui.</p></div>}</article></section><section className="surface-panel device-list-panel"><div className="panel-header"><div><span className="eyebrow">INVENTÁRIO CONECTADO</span><h2>{devices.length} dispositivos</h2></div><Radio size={19} /></div><div className="responsive-table"><table><thead><tr><th>DISPOSITIVO</th><th>MÁQUINA</th><th>CLIENTE MQTT</th><th>FIRMWARE</th><th>ÚLTIMO CONTATO</th><th>STATUS</th><th /></tr></thead><tbody>{devices.map((device) => <tr key={device.id}><td><div className="asset-cell"><span><Cpu size={17} /></span><div><b>{device.deviceCode}</b><small>{device.hardwareSerial || 'Serial não informado'}</small></div></div></td><td><b>{device.machine.code}</b><small className="reading-secondary">{device.machine.name}</small></td><td>{device.mqttClientId}</td><td>{device.firmwareVersion || '—'}</td><td>{formatDate(device.lastSeenAt)}</td><td><StatusBadge status={device.active ? (device.machine.status === 'ONLINE' ? 'ONLINE' : 'OFFLINE') : 'DISABLED'} /></td><td><button className="table-icon-button" title="Trocar credencial" onClick={() => rotate(device.id)} disabled={saving}><RotateCw size={14} /></button></td></tr>)}</tbody></table></div></section></div>;
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [deviceResult, machineResult] = await Promise.all([
+        request("/devices"),
+        loadMachines(),
+      ]);
+      setDevices(deviceResult || []);
+      setMachines(machineResult.data || []);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const availableMachines = useMemo(
+    () =>
+      machines.filter(
+        (machine) => !devices.some((device) => device.machineId === machine.id),
+      ),
+    [machines, devices],
+  );
+  async function createDevice(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const result = await request("/devices", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          hardwareSerial: form.hardwareSerial.trim() || undefined,
+        }),
+      });
+      setProvisioning(result.provisioning);
+      setForm(initialForm);
+      await load();
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function rotate(deviceId) {
+    if (
+      !window.confirm(
+        "Gerar uma nova credencial? A credencial anterior deixará de funcionar.",
+      )
+    )
+      return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await request(`/devices/${deviceId}/rotate-credentials`, {
+        method: "POST",
+      });
+      setProvisioning(result.provisioning);
+      await load();
+    } catch (rotateError) {
+      setError(rotateError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  function downloadManifest() {
+    const blob = new Blob([JSON.stringify(provisioning, null, 2)], {
+      type: "application/json",
+    });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `${provisioning.device.code}-provisioning.json`;
+    link.click();
+    URL.revokeObjectURL(href);
+  }
+  if (loading)
+    return (
+      <div className="admin-page">
+        <LoadingState label="Carregando vínculos dos dispositivos..." />
+      </div>
+    );
+  return (
+    <div className="admin-page">
+      <PageHeader
+        eyebrow="IOT E PROVISIONAMENTO"
+        title="Dispositivos ESP32"
+        description="Vincule cada módulo a uma máquina e gere sua identidade MQTT individual."
+      />
+      <section className="setup-steps" aria-label="Etapas de instalação">
+        <div><b>1</b><span><strong>Cadastre a escavadeira</strong><small>Crie o ativo em Escavadeiras.</small></span></div>
+        <div><b>2</b><span><strong>Vincule o ESP32</strong><small>Selecione abaixo a máquina correta.</small></span></div>
+        <div><b>3</b><span><strong>Grave a configuração</strong><small>Baixe o JSON e instale no firmware.</small></span></div>
+        <div><b>4</b><span><strong>Teste no campo</strong><small>Confirme Bluetooth, GPS e RFID.</small></span></div>
+      </section>
+      {error && <ErrorState message={error} onRetry={load} />}
+      <section className="device-workspace">
+        <form
+          className="surface-panel provisioning-form"
+          onSubmit={createDevice}
+        >
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">NOVO VÍNCULO</span>
+              <h2>Instalar ESP32</h2>
+            </div>
+            <Link2 size={19} />
+          </div>
+          <label>
+            <span>MÁQUINA SEM DISPOSITIVO</span>
+            <select
+              required
+              value={form.machineId}
+              onChange={(event) =>
+                setForm({ ...form, machineId: event.target.value })
+              }
+            >
+              <option value="">Selecione a escavadeira</option>
+              {availableMachines.map((machine) => (
+                <option key={machine.id} value={machine.id}>
+                  {machine.code} · {machine.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>CÓDIGO DO DISPOSITIVO</span>
+            <input
+              required
+              placeholder="DEV-ESC-005"
+              value={form.deviceCode}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  deviceCode: event.target.value.toUpperCase(),
+                })
+              }
+            />
+          </label>
+          <label>
+            <span>SERIAL DO HARDWARE</span>
+            <input
+              placeholder="ESP32-A1B2C3D4"
+              value={form.hardwareSerial}
+              onChange={(event) =>
+                setForm({ ...form, hardwareSerial: event.target.value })
+              }
+            />
+          </label>
+          <button
+            className="provision-button"
+            disabled={saving || !availableMachines.length}
+          >
+            <ShieldCheck size={16} />
+            {saving ? "GERANDO IDENTIDADE..." : "VINCULAR E PROVISIONAR"}
+          </button>
+          {!availableMachines.length && (
+            <small className="form-hint">
+              Todas as máquinas já possuem um dispositivo.
+            </small>
+          )}
+        </form>
+        <article className="surface-panel credential-panel">
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">CREDENCIAL DE INSTALAÇÃO</span>
+              <h2>
+                {provisioning
+                  ? provisioning.device.code
+                  : "Aguardando provisionamento"}
+              </h2>
+            </div>
+            <KeyRound size={19} />
+          </div>
+          {provisioning ? (
+            <>
+              <div className="credential-warning">
+                <CheckCircle2 size={18} />
+                <p>
+                  <b>Identidade criada com sucesso</b>
+                  <span>
+                    Baixe agora. O token não poderá ser consultado novamente.
+                  </span>
+                </p>
+              </div>
+              <div className="credential-grid">
+                <Field
+                  label="MQTT CLIENT ID"
+                  value={provisioning.mqtt.clientId}
+                />
+                <Field
+                  label="MQTT USUÁRIO"
+                  value={provisioning.mqtt.username}
+                />
+                <Field
+                  label="DEVICE TOKEN"
+                  value={provisioning.device.token}
+                  secret
+                />
+                <Field label="BROKER" value={provisioning.mqtt.url} />
+              </div>
+              <div className="credential-actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      JSON.stringify(provisioning, null, 2),
+                    )
+                  }
+                >
+                  <Copy size={15} /> Copiar JSON
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={downloadManifest}
+                >
+                  <Download size={15} /> Baixar configuração
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="credential-empty">
+              <Cpu size={28} />
+              <p>
+                Ao vincular um ESP32, o pacote com tópicos, usuário e token
+                aparecerá aqui.
+              </p>
+            </div>
+          )}
+        </article>
+      </section>
+      <section className="surface-panel device-list-panel">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">INVENTÁRIO CONECTADO</span>
+            <h2>{devices.length} dispositivos</h2>
+          </div>
+          <Radio size={19} />
+        </div>
+        <div className="responsive-table">
+          <table>
+            <thead>
+              <tr>
+                <th>DISPOSITIVO</th>
+                <th>MÁQUINA</th>
+                <th>CLIENTE MQTT</th>
+                <th>FIRMWARE</th>
+                <th>ÚLTIMO CONTATO</th>
+                <th>STATUS</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((device) => (
+                <tr key={device.id}>
+                  <td>
+                    <div className="asset-cell">
+                      <span>
+                        <Cpu size={17} />
+                      </span>
+                      <div>
+                        <b>{device.deviceCode}</b>
+                        <small>
+                          {device.hardwareSerial || "Serial não informado"}
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <b>{device.machine.code}</b>
+                    <small className="reading-secondary">
+                      {device.machine.name}
+                    </small>
+                  </td>
+                  <td>{device.mqttClientId}</td>
+                  <td>{device.firmwareVersion || "—"}</td>
+                  <td>{formatDate(device.lastSeenAt)}</td>
+                  <td>
+                    <StatusBadge
+                      status={
+                        device.active
+                          ? device.machine.status === "ONLINE"
+                            ? "ONLINE"
+                            : "OFFLINE"
+                          : "DISABLED"
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="table-icon-button"
+                      title="Trocar credencial"
+                      onClick={() => rotate(device.id)}
+                      disabled={saving}
+                    >
+                      <RotateCw size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
 }
 
-function Field({ label, value, secret }) { return <div><span>{label}</span><code>{secret ? `${value.slice(0, 10)}••••••••••••` : value}</code></div>; }
-function formatDate(value) { return value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : 'Nunca conectado'; }
+function Field({ label, value, secret }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <code>{secret ? `${value.slice(0, 10)}••••••••••••` : value}</code>
+    </div>
+  );
+}
+function formatDate(value) {
+  return value
+    ? new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : "Nunca conectado";
+}

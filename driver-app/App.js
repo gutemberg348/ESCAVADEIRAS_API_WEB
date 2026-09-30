@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,6 +11,7 @@ import {
   Text,
   TextInput,
   useColorScheme,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +24,8 @@ import {
   Building2,
   Clock3,
   Cpu,
+  Eye,
+  EyeOff,
   Gauge,
   HardHat,
   LogOut,
@@ -333,14 +337,42 @@ function Splash() {
 }
 
 function LoginScreen({ email, password, setEmail, setPassword, loading, error, onLogin, mode, theme, styles, onToggleTheme }) {
+  const scrollRef = useRef(null);
+  const passwordRef = useRef(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [focused, setFocused] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const { height } = useWindowDimensions();
+  const compact = keyboardOpen || height < 720;
+
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+      setKeyboardOpen(true);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    });
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  const focusField = (field) => {
+    setFocused(field);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  };
+
   return (
     <SafeAreaView style={styles.login} edges={['top', 'bottom']}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={styles.loginKeyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView contentContainerStyle={styles.loginScroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.loginScroll, compact && styles.loginScrollCompact]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.loginTopbar}>
             <View style={styles.loginBrand}>
               <View style={styles.loginBrandMark}><Text style={styles.loginBrandLetter}>E</Text></View>
@@ -349,21 +381,21 @@ function LoginScreen({ email, password, setEmail, setPassword, loading, error, o
             <ThemeToggle mode={mode} onToggle={onToggleTheme} theme={theme} />
           </View>
 
-          <View style={styles.loginIntro}>
+          {!keyboardOpen && <View style={[styles.loginIntro, compact && styles.loginIntroCompact]}>
             <View style={styles.secureLabel}>
               <ShieldCheck size={13} color={theme.success} />
               <Text style={styles.secureLabelText}>ACESSO OPERACIONAL SEGURO</Text>
             </View>
             <Text style={styles.loginTitle}>Sua máquina.{`\n`}Seus dados. <Text style={styles.loginTitleAccent}>Agora.</Text></Text>
             <Text style={styles.loginCopy}>Telemetria, localização e alertas da sua operação em uma experiência feita para o campo.</Text>
-          </View>
+          </View>}
 
-          <View style={styles.loginPanel}>
+          <View style={[styles.loginPanel, compact && styles.loginPanelCompact]}>
             <Text style={styles.loginPanelEyebrow}>IDENTIFICAÇÃO DO OPERADOR</Text>
             <Text style={styles.loginPanelTitle}>Entrar na operação</Text>
 
             <Text style={styles.inputLabel}>E-MAIL</Text>
-            <View style={styles.inputWrap}>
+            <View style={[styles.inputWrap, focused === 'email' && styles.inputWrapFocused]}>
               <UserRound size={17} color={theme.textMuted} />
               <TextInput
                 style={styles.input}
@@ -374,21 +406,41 @@ function LoginScreen({ email, password, setEmail, setPassword, loading, error, o
                 keyboardType="email-address"
                 placeholder="operador@empresa.com"
                 placeholderTextColor={theme.textMuted}
+                returnKeyType="next"
+                textContentType="emailAddress"
+                autoComplete="email"
+                onFocus={() => focusField('email')}
+                onBlur={() => setFocused(null)}
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
             </View>
 
             <Text style={styles.inputLabel}>SENHA</Text>
-            <View style={styles.inputWrap}>
+            <View style={[styles.inputWrap, focused === 'password' && styles.inputWrapFocused]}>
               <ShieldCheck size={17} color={theme.textMuted} />
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 placeholder="Sua senha"
                 placeholderTextColor={theme.textMuted}
+                returnKeyType="done"
+                textContentType="password"
+                autoComplete="password"
+                onFocus={() => focusField('password')}
+                onBlur={() => setFocused(null)}
                 onSubmitEditing={onLogin}
               />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                hitSlop={10}
+                onPress={() => setShowPassword(value => !value)}
+              >
+                {showPassword ? <EyeOff size={19} color={theme.textSecondary} /> : <Eye size={19} color={theme.textSecondary} />}
+              </Pressable>
             </View>
 
             {error ? (
@@ -398,7 +450,7 @@ function LoginScreen({ email, password, setEmail, setPassword, loading, error, o
               </View>
             ) : null}
 
-            <Pressable disabled={loading} onPress={onLogin} style={({ pressed }) => [styles.loginButton, pressed && { opacity: .85 }]}>
+            <Pressable accessibilityRole="button" disabled={loading} onPress={onLogin} style={({ pressed }) => [styles.loginButton, loading && styles.loginButtonDisabled, pressed && { opacity: .85 }]}>
               {loading ? <ActivityIndicator color={theme.accentText} /> : (
                 <>
                   <Text style={styles.loginButtonText}>Acessar plataforma</Text>
@@ -715,103 +767,108 @@ function createStyles(theme) {
     content: { paddingHorizontal: 18, paddingTop: 9, paddingBottom: 110, width: '100%', maxWidth: 700, alignSelf: 'center' },
     login: { flex: 1, backgroundColor: theme.background },
     loginKeyboard: { flex: 1 },
-    loginScroll: { minHeight: '100%', paddingHorizontal: 22, paddingBottom: 26, justifyContent: 'space-between' },
+    loginScroll: { flexGrow: 1, paddingHorizontal: 22, paddingBottom: 26, justifyContent: 'space-between', width: '100%', maxWidth: 520, alignSelf: 'center' },
+    loginScrollCompact: { justifyContent: 'flex-start', paddingBottom: 16 },
     loginTopbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10 },
     loginBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     loginBrandMark: { width: 31, height: 31, borderRadius: 8, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     loginBrandLetter: { color: theme.accentText, fontWeight: '900', fontSize: 17 },
     loginBrandName: { color: theme.text, fontSize: 14, fontWeight: '900', letterSpacing: -.8 },
     loginIntro: { paddingTop: 46, paddingBottom: 36 },
+    loginIntroCompact: { paddingTop: 22, paddingBottom: 20 },
     secureLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-    secureLabelText: { color: theme.success, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.2 },
+    secureLabelText: { color: theme.success, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
     loginTitle: { color: theme.text, fontSize: 41, lineHeight: 44, fontWeight: '800', letterSpacing: -2.3, marginTop: 17 },
     loginTitleAccent: { color: theme.accent },
-    loginCopy: { color: theme.textSecondary, fontSize: 13, lineHeight: 21, maxWidth: 330, marginTop: 15 },
+    loginCopy: { color: theme.textSecondary, fontSize: 14, lineHeight: 21, maxWidth: 360, marginTop: 15 },
     loginPanel: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 20, padding: 21, shadowColor: theme.shadow, shadowOpacity: theme.mode === 'dark' ? .2 : .07, shadowRadius: 25, shadowOffset: { width: 0, height: 12 } },
-    loginPanelEyebrow: { color: theme.textMuted, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.2 },
-    loginPanelTitle: { color: theme.text, fontSize: 21, fontWeight: '800', letterSpacing: -.8, marginTop: 5, marginBottom: 12 },
-    inputLabel: { color: theme.textMuted, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.2, marginTop: 14, marginBottom: 6 },
-    inputWrap: { height: 48, borderWidth: 1, borderColor: theme.border, borderRadius: 11, backgroundColor: theme.surfaceRaised, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13 },
-    input: { flex: 1, color: theme.text, fontSize: 12, height: '100%' },
+    loginPanelCompact: { marginTop: 18, paddingVertical: 18 },
+    loginPanelEyebrow: { color: theme.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+    loginPanelTitle: { color: theme.text, fontSize: 23, fontWeight: '800', letterSpacing: -.8, marginTop: 6, marginBottom: 12 },
+    inputLabel: { color: theme.textSecondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 14, marginBottom: 7 },
+    inputWrap: { minHeight: 54, borderWidth: 1.5, borderColor: theme.border, borderRadius: 13, backgroundColor: theme.surfaceRaised, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14 },
+    inputWrapFocused: { borderColor: theme.accent, backgroundColor: theme.surface },
+    input: { flex: 1, color: theme.text, fontSize: 15, minHeight: 52, paddingVertical: 0 },
     loginError: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, backgroundColor: theme.dangerSoft, borderRadius: 10, padding: 11, marginTop: 14 },
     loginErrorText: { color: theme.danger, fontSize: 10, lineHeight: 15, flex: 1 },
-    loginButton: { height: 50, borderRadius: 11, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 17, marginTop: 19 },
-    loginButtonText: { color: theme.accentText, fontSize: 11, fontWeight: '900' },
+    loginButton: { minHeight: 54, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, marginTop: 19 },
+    loginButtonDisabled: { opacity: .65 },
+    loginButtonText: { color: theme.accentText, fontSize: 14, fontWeight: '900' },
     serverLine: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 15 },
-    serverText: { color: theme.textMuted, fontSize: 8, maxWidth: 240 },
+    serverText: { color: theme.textMuted, fontSize: 10, maxWidth: 280 },
     pageIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 },
-    pageEyebrow: { color: theme.textMuted, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.25 },
+    pageEyebrow: { color: theme.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
     pageTitle: { color: theme.text, fontSize: 28, fontWeight: '800', letterSpacing: -1.35, marginTop: 5 },
-    pageSubtitle: { color: theme.textSecondary, fontSize: 9.5, marginTop: 5 },
+    pageSubtitle: { color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
     liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.successSoft, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 12, marginBottom: 3 },
     liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.success },
-    liveText: { color: theme.success, fontSize: 7, fontWeight: '900', letterSpacing: .7 },
+    liveText: { color: theme.success, fontSize: 9, fontWeight: '900', letterSpacing: .6 },
     heroCard: { backgroundColor: '#14221C', borderWidth: 1, borderColor: '#2A3D33', borderRadius: 18, padding: 20, overflow: 'hidden' },
     heroGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: '#D9FF4312', right: -70, top: -90 },
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    heroEyebrow: { color: '#84928A', fontSize: 7, fontWeight: '900', letterSpacing: 1.25 },
+    heroEyebrow: { color: '#84928A', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
     heroCode: { color: '#F2F6F1', fontSize: 30, fontWeight: '900', letterSpacing: -1.7, marginTop: 7 },
-    heroName: { color: '#9FAEA5', fontSize: 10, marginTop: 2 },
+    heroName: { color: '#9FAEA5', fontSize: 12, marginTop: 2 },
     heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 25, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#2B3D34' },
     heroMetaItem: { flex: 1, flexDirection: 'row', gap: 9, alignItems: 'center' },
     heroMetaDivider: { width: 1, height: 31, backgroundColor: '#2B3D34', marginHorizontal: 13 },
-    heroMetaLabel: { color: '#718179', fontSize: 6.5, fontWeight: '900', letterSpacing: 1 },
-    heroMetaValue: { color: '#DDE5DF', fontSize: 9, fontWeight: '700', marginTop: 3 },
+    heroMetaLabel: { color: '#718179', fontSize: 8, fontWeight: '900', letterSpacing: .8 },
+    heroMetaValue: { color: '#DDE5DF', fontSize: 11, fontWeight: '700', marginTop: 3 },
     heroAction: { height: 44, borderRadius: 11, backgroundColor: '#D9FF43', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, marginTop: 18 },
     heroActionText: { color: '#172000', fontSize: 10, fontWeight: '900' },
     metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
     listCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     allClear: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 17 },
     allClearIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: theme.successSoft, alignItems: 'center', justifyContent: 'center' },
-    allClearTitle: { color: theme.text, fontSize: 11, fontWeight: '800' },
-    allClearCopy: { color: theme.textSecondary, fontSize: 8.5, marginTop: 3 },
+    allClearTitle: { color: theme.text, fontSize: 13, fontWeight: '800' },
+    allClearCopy: { color: theme.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
     machineCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 17, padding: 17 },
     machineCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     machineIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     machineIcon: { width: 47, height: 47, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     machineCardCode: { color: theme.text, fontSize: 18, fontWeight: '900', letterSpacing: -.7 },
-    machineCardName: { color: theme.textSecondary, fontSize: 9, marginTop: 2 },
+    machineCardName: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
     machineSpecs: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: theme.border, marginTop: 17, paddingTop: 15, rowGap: 14 },
     infoItem: { width: '50%' },
-    infoLabel: { color: theme.textMuted, fontSize: 6.5, fontWeight: '900', letterSpacing: 1 },
-    infoValue: { color: theme.text, fontSize: 10, fontWeight: '700', marginTop: 4, paddingRight: 8 },
+    infoLabel: { color: theme.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: .8 },
+    infoValue: { color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 4, paddingRight: 8 },
     healthRow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderBottomColor: theme.border, paddingVertical: 14 },
     healthIcon: { width: 37, height: 37, borderRadius: 11, backgroundColor: theme.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
-    healthLabel: { color: theme.text, fontSize: 10.5, fontWeight: '800' },
-    healthValue: { color: theme.textSecondary, fontSize: 8.5, marginTop: 3 },
+    healthLabel: { color: theme.text, fontSize: 12.5, fontWeight: '800' },
+    healthValue: { color: theme.textSecondary, fontSize: 10.5, marginTop: 3 },
     healthDot: { width: 7, height: 7, borderRadius: 4 },
     locationSummary: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, padding: 17, marginTop: 13 },
     locationSummaryHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
     locationMachineIcon: { width: 43, height: 43, borderRadius: 13, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     locationMachineCode: { color: theme.text, fontSize: 15, fontWeight: '900' },
-    locationMachineName: { color: theme.textSecondary, fontSize: 8.5, marginTop: 2 },
+    locationMachineName: { color: theme.textSecondary, fontSize: 10.5, marginTop: 2 },
     locationRows: { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 16, paddingTop: 4 },
     infoLine: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 },
     infoLineIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: theme.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
-    infoLineLabel: { color: theme.textMuted, fontSize: 7.5, fontWeight: '800', letterSpacing: .5 },
-    infoLineValue: { color: theme.text, fontSize: 10, fontWeight: '700', marginTop: 3 },
+    infoLineLabel: { color: theme.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: .5 },
+    infoLineValue: { color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 3 },
     alertsCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     profileCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 18, padding: 20, alignItems: 'center' },
     profileAvatar: { width: 66, height: 66, borderRadius: 21, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     profileInitials: { color: theme.accentText, fontSize: 20, fontWeight: '900' },
     profileName: { color: theme.text, fontSize: 18, fontWeight: '800', letterSpacing: -.5, marginTop: 13 },
-    profileRole: { color: theme.textSecondary, fontSize: 9, marginTop: 3 },
+    profileRole: { color: theme.textSecondary, fontSize: 11, marginTop: 3 },
     profileFacts: { alignSelf: 'stretch', borderTopWidth: 1, borderTopColor: theme.border, marginTop: 18, paddingTop: 5 },
     settingsCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     settingRow: { minHeight: 69, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
     settingCopy: { flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 },
-    settingTitle: { color: theme.text, fontSize: 10.5, fontWeight: '800' },
-    settingCaption: { color: theme.textSecondary, fontSize: 8.5, marginTop: 3, maxWidth: 210 },
+    settingTitle: { color: theme.text, fontSize: 12.5, fontWeight: '800' },
+    settingCaption: { color: theme.textSecondary, fontSize: 10.5, lineHeight: 15, marginTop: 3, maxWidth: 210 },
     settingDivider: { height: 1, backgroundColor: theme.border },
     serverOnline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     serverOnlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.success },
-    serverOnlineText: { color: theme.success, fontSize: 6.5, fontWeight: '900', letterSpacing: .8 },
+    serverOnlineText: { color: theme.success, fontSize: 8.5, fontWeight: '900', letterSpacing: .7 },
     logoutButton: { height: 48, borderWidth: 1, borderColor: theme.danger, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 17 },
     logoutText: { color: theme.danger, fontSize: 10, fontWeight: '900' },
     errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.dangerSoft, borderRadius: 13, padding: 13, marginBottom: 16 },
-    errorTitle: { color: theme.danger, fontSize: 9.5, fontWeight: '900' },
-    errorCopy: { color: theme.danger, fontSize: 8.5, lineHeight: 13, marginTop: 2 },
-    retryButton: { width: 33, height: 33, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    errorTitle: { color: theme.danger, fontSize: 11.5, fontWeight: '900' },
+    errorCopy: { color: theme.danger, fontSize: 10.5, lineHeight: 15, marginTop: 2 },
+    retryButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     loadingState: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
     loadingTitle: { color: theme.text, fontSize: 15, fontWeight: '800', marginTop: 16 },
     loadingCopy: { color: theme.textSecondary, fontSize: 10, marginTop: 5 },
