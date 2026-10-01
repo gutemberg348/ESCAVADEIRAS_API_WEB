@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Truck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, Truck } from "lucide-react";
 import { companies, createMachine } from "../../../../services/machine.service";
 import { session } from "../../../../services/api";
 import { ErrorState } from "../../../../components/States";
@@ -25,6 +25,7 @@ export default function NewMachinePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     setIsSuperAdmin(session()?.user?.role === "SUPER_ADMIN");
@@ -42,6 +43,15 @@ export default function NewMachinePage() {
   }
   async function submit(event) {
     event.preventDefault();
+    if (step < 3) {
+      if (step === 1 && (!form.code.trim() || form.code.trim().length < 3 || !form.name.trim() || (isSuperAdmin && !form.companyId))) {
+        setError("Informe a empresa, o código e o nome da escavadeira para continuar.");
+        return;
+      }
+      setError("");
+      setStep(step + 1);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -66,25 +76,26 @@ export default function NewMachinePage() {
         <div>
           <span className="eyebrow">NOVO ATIVO</span>
           <h1>Cadastrar escavadeira</h1>
-          <p>
-            Primeiro crie o equipamento. Depois vincule o ESP32 em Dispositivos.
-          </p>
+          <p>Cadastre a escavadeira em três passos. Depois o painel guiará a instalação da placa.</p>
         </div>
       </header>
       {error && <ErrorState message={error} />}
       <form className="surface-panel machine-create-form" onSubmit={submit}>
+        <div className="machine-wizard-progress" aria-label={`Passo ${step} de 3`}>
+          {["Identificação", "Detalhes opcionais", "Confirmar"].map((label, index) => <span key={label} className={step >= index + 1 ? "active" : ""}><b>{index + 1}</b>{label}</span>)}
+        </div>
         <div className="panel-header">
           <div>
-            <span className="eyebrow">IDENTIFICAÇÃO</span>
-            <h2>Dados do equipamento</h2>
+            <span className="eyebrow">PASSO {step} DE 3</span>
+            <h2>{step === 1 ? "Identifique a escavadeira" : step === 2 ? "Complete se souber" : "Confira antes de cadastrar"}</h2>
           </div>
           <Truck size={20} />
         </div>
-        {isSuperAdmin && (
+        {step === 1 && isSuperAdmin && (
           <label>
             <span>EMPRESA *</span>
             <select
-              required
+              required={step === 1}
               value={form.companyId}
               onChange={(e) => change("companyId", e.target.value)}
             >
@@ -97,11 +108,11 @@ export default function NewMachinePage() {
             </select>
           </label>
         )}
-        <div className="machine-form-grid">
+        {step === 1 && <div className="machine-form-grid">
           <label>
             <span>CÓDIGO *</span>
             <input
-              required
+              required={step === 1}
               minLength={3}
               maxLength={40}
               placeholder="ESC-001"
@@ -112,14 +123,15 @@ export default function NewMachinePage() {
           <label>
             <span>NOME *</span>
             <input
-              required
+              required={step === 1}
               minLength={2}
               placeholder="Escavadeira principal"
               value={form.name}
               onChange={(e) => change("name", e.target.value)}
             />
           </label>
-          <label>
+        </div>}
+        {step === 2 && <><p className="guided-help">Estes campos são opcionais. Você pode continuar sem eles e completar depois.</p><div className="machine-form-grid"><label>
             <span>FABRICANTE</span>
             <input
               placeholder="Caterpillar"
@@ -155,12 +167,19 @@ export default function NewMachinePage() {
               onChange={(e) => change("year", e.target.value)}
             />
           </label>
-        </div>
+        </div></>}
+        {step === 3 && <div className="machine-review">
+          <div><span>Empresa</span><strong>{isSuperAdmin ? companyList.find((item) => item.id === form.companyId)?.name || "Não selecionada" : "Sua empresa"}</strong></div>
+          <div><span>Código</span><strong>{form.code.trim()}</strong></div>
+          <div><span>Nome</span><strong>{form.name.trim()}</strong></div>
+          <div><span>Fabricante / modelo</span><strong>{[form.brand, form.model].filter(Boolean).join(" · ") || "Não informado"}</strong></div>
+          <p>Ao confirmar, a escavadeira será criada e você seguirá para instalar ou vincular o ESP32.</p>
+        </div>}
         <div className="machine-form-actions">
-          <Link href="/admin/machines">Cancelar</Link>
-          <button disabled={saving}>
-            <Save size={16} />
-            {saving ? "Salvando..." : "Cadastrar escavadeira"}
+          {step > 1 ? <button type="button" className="wizard-back" onClick={() => { setStep(step - 1); setError(""); }}>Voltar</button> : <Link href="/admin/machines">Cancelar</Link>}
+          <button type="submit" disabled={saving}>
+            {step === 3 ? <Save size={16} /> : <ArrowRight size={16} />}
+            {saving ? "Salvando..." : step === 3 ? "Cadastrar e instalar placa" : "Continuar"}
           </button>
         </div>
       </form>

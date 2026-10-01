@@ -101,8 +101,8 @@ model Machine {
 
 model Device {
   id              String      @id @default(uuid())
-  machineId       String      @unique
-  machine         Machine     @relation(fields: [machineId], references: [id])
+  machineId       String?     @unique
+  machine         Machine?    @relation(fields: [machineId], references: [id])
   deviceCode      String      @unique
   hardwareSerial  String?     @unique
   firmwareVersion String?
@@ -113,6 +113,7 @@ model Device {
   hardwareConfig  Json?
   provisionedAt   DateTime?
   revokedAt       DateTime?
+  archivedAt      DateTime?
   active          Boolean     @default(true)
   lastSeenAt      DateTime?
   telemetry       Telemetry[]
@@ -120,6 +121,7 @@ model Device {
   updatedAt       DateTime    @updatedAt
 
   @@index([deviceCode])
+  @@index([archivedAt])
 }
 
 model RfidCard {

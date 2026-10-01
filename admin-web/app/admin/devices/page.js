@@ -1,122 +1,130 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  Copy,
-  Cpu,
-  Download,
-  KeyRound,
-  Link2,
-  Radio,
-  RotateCw,
-  ShieldCheck,
-} from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Cpu, Download, Plus, Trash2, Usb } from "lucide-react";
 import PageHeader from "../../../components/PageHeader";
 import StatusBadge from "../../../components/StatusBadge";
 import { ErrorState, LoadingState } from "../../../components/States";
 import { request } from "../../../services/api";
-import { machines as loadMachines } from "../../../services/machine.service";
+import { fleetMachines } from "../../../services/machine.service";
 import UsbProvisioner from "../../../components/UsbProvisioner";
 import FirmwareInstaller from "../../../components/FirmwareInstaller";
-
-const initialForm = { machineId: "", deviceCode: "", hardwareSerial: "" };
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState([]);
   const [machines, setMachines] = useState([]);
-  const [form, setForm] = useState(initialForm);
+  const [machineId, setMachineId] = useState("");
+  const [boardConnected, setBoardConnected] = useState(null);
+  const [firmwareInstalled, setFirmwareInstalled] = useState(null);
+  const [firmwareReady, setFirmwareReady] = useState(false);
   const [provisioning, setProvisioning] = useState(null);
+  const [configured, setConfigured] = useState(false);
+  const [deviceCode, setDeviceCode] = useState("");
+  const [hardwareSerial, setHardwareSerial] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
   const load = useCallback(async () => {
-    setLoading(true);
     setError("");
     try {
-      const [deviceResult, machineResult] = await Promise.all([
-        request("/devices"),
-        loadMachines(),
-      ]);
-      setDevices(deviceResult || []);
-      setMachines(machineResult.data || []);
-      const requestedMachine = new URLSearchParams(window.location.search).get(
-        "machine",
-      );
-      if (
-        requestedMachine &&
-        (machineResult.data || []).some(
-          (machine) =>
-            machine.id === requestedMachine &&
-            !(deviceResult || []).some(
-              (device) => device.machineId === requestedMachine,
-            ),
-        )
-      ) {
-        setForm((current) => ({ ...current, machineId: requestedMachine }));
+      const [items, fleet] = await Promise.all([request("/devices"), fleetMachines()]);
+      setDevices(items || []);
+      setMachines(fleet || []);
+      const requested = new URLSearchParams(window.location.search).get("machine");
+      if (requested && fleet.some((machine) => machine.id === requested)) {
+        setMachineId((current) => current || requested);
+        const selected = fleet.find((machine) => machine.id === requested);
+        if (!(items || []).some((item) => item.machineId === requested)) {
+          setDeviceCode((current) => current || `ESP-${selected.code}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`);
+        }
       }
-    } catch (loadError) {
-      setError(loadError.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }, []);
-  useEffect(() => {
-    load();
-  }, [load]);
-  const availableMachines = useMemo(
-    () =>
-      machines.filter(
-        (machine) => !devices.some((device) => device.machineId === machine.id),
-      ),
-    [machines, devices],
-  );
+  useEffect(() => { load(); }, [load]);
+
+  const machine = useMemo(() => machines.find((item) => item.id === machineId), [machines, machineId]);
+  const existing = useMemo(() => devices.find((item) => item.machineId === machineId), [devices, machineId]);
+  const canProvision = boardConnected === true && (firmwareInstalled === true || firmwareReady);
+
+  function selectMachine(value) {
+    setMachineId(value);
+    setBoardConnected(null);
+    setFirmwareInstalled(null);
+    setFirmwareReady(false);
+    setProvisioning(null);
+    setConfigured(false);
+    const selected = machines.find((item) => item.id === value);
+    setDeviceCode(selected && !devices.some((item) => item.machineId === value)
+      ? `ESP-${selected.code}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      : "");
+    setHardwareSerial("");
+    setError("");
+    setNotice("");
+  }
+
   async function createDevice(event) {
     event.preventDefault();
+    if (!canProvision || existing) return;
     setSaving(true);
     setError("");
     try {
       const result = await request("/devices", {
         method: "POST",
-        body: JSON.stringify({
-          ...form,
-          hardwareSerial: form.hardwareSerial.trim() || undefined,
-        }),
+        body: JSON.stringify({ machineId, deviceCode: deviceCode.trim().toUpperCase(), hardwareSerial: hardwareSerial.trim() || undefined }),
       });
       setProvisioning(result.provisioning);
-      setForm(initialForm);
+      setNotice("Identidade criada. Agora grave-a no ESP32 pela USB para concluir.");
       await load();
-    } catch (saveError) {
-      setError(saveError.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   }
-  async function rotate(deviceId) {
-    if (
-      !window.confirm(
-        "Gerar uma nova credencial? A credencial anterior deixará de funcionar.",
-      )
-    )
-      return;
+
+  async function reconfigure() {
+    if (!existing || !window.confirm("Gerar nova identidade? A credencial atual deixará de funcionar até a configuração USB terminar.")) return;
     setSaving(true);
     setError("");
     try {
-      const result = await request(`/devices/${deviceId}/rotate-credentials`, {
-        method: "POST",
-      });
+      const result = await request(`/devices/${existing.id}/rotate-credentials`, { method: "POST" });
       setProvisioning(result.provisioning);
+      setConfigured(false);
+      setNotice("Nova identidade criada. Configure a mesma placa pela USB agora.");
       await load();
-    } catch (rotateError) {
-      setError(rotateError.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   }
+
+  async function remove(device) {
+    if (!window.confirm(`Retirar ${device.deviceCode} de ${device.machine?.code}? O histórico será preservado, mas a placa perderá acesso e essa máquina poderá receber outro ESP32.`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await request(`/devices/${device.id}`, { method: "DELETE" });
+      if (machineId === device.machineId) selectMachine(machineId);
+      setNotice(`${device.deviceCode} retirado. A escavadeira está livre para outro dispositivo.`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function downloadManifest() {
-    const blob = new Blob([JSON.stringify(provisioning, null, 2)], {
-      type: "application/json",
-    });
+    if (!provisioning) return;
+    const blob = new Blob([JSON.stringify(provisioning, null, 2)], { type: "application/json" });
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
@@ -124,278 +132,72 @@ export default function DevicesPage() {
     link.click();
     URL.revokeObjectURL(href);
   }
-  if (loading)
-    return (
-      <div className="admin-page">
-        <LoadingState label="Carregando vínculos dos dispositivos..." />
-      </div>
-    );
+
+  if (loading) return <div className="admin-page"><LoadingState label="Carregando escavadeiras e dispositivos..." /></div>;
   return (
-    <div className="admin-page">
-      <PageHeader
-        eyebrow="IOT E PROVISIONAMENTO"
-        title="Dispositivos ESP32"
-        description="Vincule cada módulo a uma máquina e gere sua identidade MQTT individual."
-      />
-      <section className="setup-steps" aria-label="Etapas de instalação">
-        <div>
-          <b>1</b>
-          <span>
-            <strong>Cadastre a escavadeira</strong>
-            <small>Crie o ativo em Escavadeiras.</small>
-          </span>
-        </div>
-        <div>
-          <b>2</b>
-          <span>
-            <strong>Vincule o ESP32</strong>
-            <small>Selecione abaixo a máquina correta.</small>
-          </span>
-        </div>
-        <div>
-          <b>3</b>
-          <span>
-            <strong>Grave a configuração</strong>
-            <small>Baixe o JSON e instale no firmware.</small>
-          </span>
-        </div>
-        <div>
-          <b>4</b>
-          <span>
-            <strong>Teste no campo</strong>
-            <small>Confirme Bluetooth, GPS e RFID.</small>
-          </span>
-        </div>
-      </section>
+    <div className="admin-page device-guided-page">
+      <PageHeader eyebrow="INSTALAÇÃO GUIADA" title="Dispositivos ESP32" description="Escolha a escavadeira e responda às perguntas. O painel mostra somente a próxima ação necessária." />
       {error && <ErrorState message={error} onRetry={load} />}
-      <FirmwareInstaller />
-      <section className="device-workspace">
-        <form
-          className="surface-panel provisioning-form"
-          onSubmit={createDevice}
-        >
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">NOVO VÍNCULO</span>
-              <h2>Instalar ESP32</h2>
-            </div>
-            <Link2 size={19} />
-          </div>
-          <label>
-            <span>MÁQUINA SEM DISPOSITIVO</span>
-            <select
-              required
-              value={form.machineId}
-              onChange={(event) =>
-                setForm({ ...form, machineId: event.target.value })
-              }
-            >
-              <option value="">Selecione a escavadeira</option>
-              {availableMachines.map((machine) => (
-                <option key={machine.id} value={machine.id}>
-                  {machine.code} · {machine.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>CÓDIGO DO DISPOSITIVO</span>
-            <input
-              required
-              placeholder="DEV-ESC-005"
-              value={form.deviceCode}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  deviceCode: event.target.value.toUpperCase(),
-                })
-              }
-            />
-          </label>
-          <label>
-            <span>SERIAL DO HARDWARE</span>
-            <input
-              placeholder="ESP32-A1B2C3D4"
-              value={form.hardwareSerial}
-              onChange={(event) =>
-                setForm({ ...form, hardwareSerial: event.target.value })
-              }
-            />
-          </label>
-          <button
-            className="provision-button"
-            disabled={saving || !availableMachines.length}
-          >
-            <ShieldCheck size={16} />
-            {saving ? "GERANDO IDENTIDADE..." : "VINCULAR E PROVISIONAR"}
-          </button>
-          {!availableMachines.length && (
-            <small className="form-hint">
-              Todas as máquinas já possuem um dispositivo.
-            </small>
-          )}
-        </form>
-        <article className="surface-panel credential-panel">
-          <div className="panel-header">
-            <div>
-              <span className="eyebrow">CREDENCIAL DE INSTALAÇÃO</span>
-              <h2>
-                {provisioning
-                  ? provisioning.device.code
-                  : "Aguardando provisionamento"}
-              </h2>
-            </div>
-            <KeyRound size={19} />
-          </div>
-          {provisioning ? (
-            <>
-              <div className="credential-warning">
-                <CheckCircle2 size={18} />
-                <p>
-                  <b>Identidade criada com sucesso</b>
-                  <span>
-                    Baixe agora. O token não poderá ser consultado novamente.
-                  </span>
-                </p>
-              </div>
-              <div className="credential-grid">
-                <Field
-                  label="MQTT CLIENT ID"
-                  value={provisioning.mqtt.clientId}
-                />
-                <Field
-                  label="MQTT USUÁRIO"
-                  value={provisioning.mqtt.username}
-                />
-                <Field
-                  label="DEVICE TOKEN"
-                  value={provisioning.device.token}
-                  secret
-                />
-                <Field label="BROKER" value={provisioning.mqtt.url} />
-              </div>
-              <UsbProvisioner provisioning={provisioning} />
-              <div className="credential-actions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigator.clipboard.writeText(
-                      JSON.stringify(provisioning, null, 2),
-                    )
-                  }
-                >
-                  <Copy size={15} /> Copiar JSON
-                </button>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={downloadManifest}
-                >
-                  <Download size={15} /> Baixar configuração
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="credential-empty">
-              <Cpu size={28} />
-              <p>
-                Ao vincular um ESP32, o pacote com tópicos, usuário e token
-                aparecerá aqui.
-              </p>
-            </div>
-          )}
-        </article>
+      {notice && <div className="guided-notice" role="status"><CheckCircle2 size={17} />{notice}</div>}
+
+      <section className="surface-panel guided-panel">
+        <div className="guided-heading"><span className="guided-number">1</span><div><h2>Qual escavadeira vai receber a placa?</h2><p>Você pode usar uma máquina já cadastrada ou criar uma nova.</p></div></div>
+        <div className="guided-machine-row">
+          <select aria-label="Escavadeira" value={machineId} onChange={(event) => selectMachine(event.target.value)}>
+            <option value="">Selecione a escavadeira</option>
+            {machines.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}{item.device ? " · ESP32 cadastrado" : ""}</option>)}
+          </select>
+          <Link href="/admin/machines/new"><Plus size={16} /> Nova escavadeira</Link>
+        </div>
       </section>
-      <section className="surface-panel device-list-panel">
-        <div className="panel-header">
-          <div>
-            <span className="eyebrow">INVENTÁRIO CONECTADO</span>
-            <h2>{devices.length} dispositivos</h2>
-          </div>
-          <Radio size={19} />
-        </div>
-        <div className="responsive-table">
-          <table>
-            <thead>
-              <tr>
-                <th>DISPOSITIVO</th>
-                <th>MÁQUINA</th>
-                <th>CLIENTE MQTT</th>
-                <th>FIRMWARE</th>
-                <th>ÚLTIMO CONTATO</th>
-                <th>STATUS</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {devices.map((device) => (
-                <tr key={device.id}>
-                  <td>
-                    <div className="asset-cell">
-                      <span>
-                        <Cpu size={17} />
-                      </span>
-                      <div>
-                        <b>{device.deviceCode}</b>
-                        <small>
-                          {device.hardwareSerial || "Serial não informado"}
-                        </small>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <b>{device.machine.code}</b>
-                    <small className="reading-secondary">
-                      {device.machine.name}
-                    </small>
-                  </td>
-                  <td>{device.mqttClientId}</td>
-                  <td>{device.firmwareVersion || "—"}</td>
-                  <td>{formatDate(device.lastSeenAt)}</td>
-                  <td>
-                    <StatusBadge
-                      status={
-                        device.active
-                          ? device.machine.status === "ONLINE"
-                            ? "ONLINE"
-                            : "OFFLINE"
-                          : "DISABLED"
-                      }
-                    />
-                  </td>
-                  <td>
-                    <button
-                      className="table-icon-button"
-                      title="Trocar credencial"
-                      onClick={() => rotate(device.id)}
-                      disabled={saving}
-                    >
-                      <RotateCw size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+
+      {machine && <section className="surface-panel guided-panel">
+        <div className="guided-heading"><span className="guided-number">2</span><div><h2>A placa ESP32 está conectada por USB neste computador?</h2><p>Use Chrome ou Edge. Feche o Monitor Serial da Arduino IDE antes de continuar.</p></div></div>
+        <Choice value={boardConnected} onChange={(value) => { setBoardConnected(value); setFirmwareInstalled(null); setFirmwareReady(false); }} yes="Sim, está conectada" no="Ainda não" />
+        {boardConnected === false && <p className="guided-help">Conecte a placa por cabo USB de dados, escolha a porta correta no navegador e volte aqui. A máquina pode ficar cadastrada enquanto isso.</p>}
+      </section>}
+
+      {boardConnected === true && <section className="surface-panel guided-panel">
+        <div className="guided-heading"><span className="guided-number">3</span><div><h2>O firmware-base já está instalado nessa placa?</h2><p>Se ela já foi gravada pela Arduino IDE ou por este painel, não grave de novo.</p></div></div>
+        <Choice value={firmwareInstalled} onChange={(value) => { setFirmwareInstalled(value); setFirmwareReady(false); }} yes="Sim, já está instalado" no="Não, preciso instalar" />
+        {firmwareInstalled === false && <><p className="guided-help">Esta gravação substitui o conteúdo atual da placa. Confira se é o ESP32 correto antes de começar.</p><FirmwareInstaller onComplete={() => setFirmwareReady(true)} /></>}
+        {firmwareReady && <p className="guided-success"><CheckCircle2 size={17} /> Firmware-base gravado. Continue para vincular a identidade.</p>}
+      </section>}
+
+      {canProvision && <section className="surface-panel guided-panel">
+        <div className="guided-heading"><span className="guided-number">4</span><div><h2>{existing ? "Esta escavadeira já tem um ESP32 cadastrado" : "Cadastrar esta placa na escavadeira"}</h2><p>{existing ? "Não crie um cadastro duplicado. Se a placa já funciona, pule a troca de credencial. Se ela nunca foi configurada, use a opção de trocar credencial abaixo." : "O código identifica a placa no aplicativo e no painel. Anote-o na etiqueta física."}</p></div></div>
+        {existing ? <div className="guided-existing"><Cpu size={20} /><div><strong>{existing.deviceCode}</strong><span>{existing.hardwareSerial || "Serial não informado"} · {existing.active ? "Ativo" : "Inativo"}</span></div>{!provisioning && <button type="button" onClick={reconfigure} disabled={saving}>Trocar credencial e configurar pela USB</button>}</div> : !provisioning ? <form className="guided-form" onSubmit={createDevice}>
+          <label><span>Código sugerido (pode alterar) *</span><input required minLength={4} maxLength={50} pattern="[A-Z0-9_-]+" placeholder="ESP-ESC-001" value={deviceCode} onChange={(event) => setDeviceCode(event.target.value.toUpperCase())} /></label>
+          <label><span>Serial da placa (opcional)</span><input minLength={4} maxLength={100} placeholder="Número escrito na placa, se houver" value={hardwareSerial} onChange={(event) => setHardwareSerial(event.target.value)} /></label>
+          <button disabled={saving}>{saving ? "Cadastrando..." : "Cadastrar e continuar"}</button>
+        </form> : <p className="guided-success"><CheckCircle2 size={17} /> Dispositivo cadastrado. Ainda falta salvar a identidade na placa.</p>}
+      </section>}
+
+      {canProvision && provisioning && <section className="surface-panel guided-panel">
+        <div className="guided-heading"><span className="guided-number">5</span><div><h2>Salvar identidade na placa</h2><p>Escolha a porta USB do mesmo ESP32. Aguarde a confirmação de reinicialização antes de retirar o cabo.</p></div></div>
+        <UsbProvisioner key={provisioning.device.token} provisioning={provisioning} onComplete={() => setConfigured(true)} />
+        <details className="guided-backup"><summary>Guardar cópia da configuração (opcional)</summary><p>O token aparece só agora. O arquivo é uma cópia de segurança; baixá-lo não instala nada na placa. Guarde-o em lugar seguro.</p><button type="button" onClick={downloadManifest}><Download size={15} /> Baixar JSON de segurança</button></details>
+      </section>}
+
+      {canProvision && existing && !provisioning && <section className="guided-finish"><CheckCircle2 size={22} /><div><strong>Dispositivo já cadastrado</strong><p>Se a placa está funcionando, abra o aplicativo do motorista, ative o Bluetooth, procure a escavadeira e aproxime o cartão RFID. Só troque a credencial se precisar reconfigurar essa placa.</p></div></section>}
+      {configured && canProvision && <section className="guided-finish"><CheckCircle2 size={22} /><div><strong>Configuração concluída</strong><p>Desconecte a USB, ligue o ESP32 na máquina e teste no aplicativo: Bluetooth → escavadeira → cartão RFID. Confirme o último contato e a telemetria no painel.</p></div></section>}
+
+      <section className="surface-panel device-list-panel guided-inventory">
+        <div className="panel-header"><div><span className="eyebrow">INVENTÁRIO</span><h2>{devices.length} dispositivos vinculados</h2></div><Usb size={19} /></div>
+        {devices.length ? <div className="guided-device-grid">{devices.map((device) => <article className="guided-device-card" key={device.id}>
+          <div className="guided-device-title"><Cpu size={20} /><div><strong>{device.deviceCode}</strong><small>{device.hardwareSerial || "Serial não informado"}</small></div><StatusBadge status={device.active ? device.machine?.status || "OFFLINE" : "DISABLED"} /></div>
+          <div className="guided-device-meta"><span>Escavadeira <b>{device.machine?.code || "Sem máquina"}</b></span><span>Último contato <b>{formatDate(device.lastSeenAt)}</b></span></div>
+          <div className="guided-row-actions"><button type="button" onClick={() => { selectMachine(device.machineId); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Ver instalação</button><button type="button" className="danger" disabled={saving} onClick={() => remove(device)}><Trash2 size={14} /> Retirar vínculo</button></div>
+        </article>)}</div> : <p className="guided-help">Nenhum ESP32 vinculado ainda. Escolha uma escavadeira acima para começar.</p>}
       </section>
     </div>
   );
 }
 
-function Field({ label, value, secret }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <code>{secret ? `${value.slice(0, 10)}••••••••••••` : value}</code>
-    </div>
-  );
+function Choice({ value, onChange, yes, no }) {
+  return <div className="guided-choices"><button type="button" aria-pressed={value === true} className={value === true ? "selected" : ""} onClick={() => onChange(true)}>{yes}</button><button type="button" aria-pressed={value === false} className={value === false ? "selected" : ""} onClick={() => onChange(false)}>{no}</button></div>;
 }
+
 function formatDate(value) {
-  return value
-    ? new Intl.DateTimeFormat("pt-BR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(new Date(value))
-    : "Nunca conectado";
+  return value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "Ainda não conectado";
 }

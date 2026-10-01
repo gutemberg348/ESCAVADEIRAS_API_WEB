@@ -19,10 +19,11 @@ function markerColor(status) {
   return '#37d67a';
 }
 
-export default function MapCard({ machines = [], focus }) {
+export default function MapCard({ machines = [], focus, selectedId, onSelect }) {
   const hostRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const viewportRef = useRef('');
   const [ready, setReady] = useState(false);
   const points = useMemo(() => (focus ? [focus] : machines).filter(validPosition), [focus, machines]);
 
@@ -48,6 +49,7 @@ export default function MapCard({ machines = [], focus }) {
       mapRef.current?.remove();
       mapRef.current = null;
       layerRef.current = null;
+      viewportRef.current = '';
     };
   }, []);
 
@@ -62,28 +64,35 @@ export default function MapCard({ machines = [], focus }) {
       points.forEach((machine) => {
         const position = [Number(machine.currentState.latitude), Number(machine.currentState.longitude)];
         const marker = L.circleMarker(position, {
-          radius: focus ? 10 : 8,
+          radius: focus || selectedId === machine.id ? 11 : 8,
           color: '#10151c',
           weight: 3,
           fillColor: markerColor(machine.status),
           fillOpacity: 1
         }).addTo(layer);
+        if (onSelect) marker.on('click', () => onSelect(machine.id));
         const popup = document.createElement('div');
         const title = document.createElement('strong');
         const details = document.createElement('span');
         title.textContent = `${machine.code || 'Máquina'} · ${machine.name || ''}`;
         const driver = machine.assignments?.[0]?.driverProfile?.user?.name || 'Aguardando identificação';
-        details.textContent = `${machine.status || 'SEM STATUS'} · ${machine.currentState.speed ?? '—'} km/h · ${driver}`;
+        details.textContent = `${machine.status || 'SEM STATUS'} · ${machine.currentState.speed ?? '—'} km/h · ${driver} · ${machine.currentState.gpsValid ? 'GPS atual' : 'última posição conhecida'}`;
         popup.className = 'map-popup-copy';
         popup.append(title, details);
         marker.bindPopup(popup);
         marker.bindTooltip(machine.code || 'Máquina', { direction: 'top', offset: [0, -8] });
         bounds.push(position);
       });
-      if (bounds.length === 1) map.setView(bounds[0], focus ? 16 : 14, { animate: true });
-      else if (bounds.length > 1) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+      const selected = points.find(machine => machine.id === selectedId);
+      const viewportKey = `${points.map(machine => machine.id).sort().join(',')}|${selected?.id || ''}`;
+      if (viewportRef.current !== viewportKey) {
+        viewportRef.current = viewportKey;
+        if (selected) map.flyTo([Number(selected.currentState.latitude), Number(selected.currentState.longitude)], 16, { duration: 0.5 });
+        else if (bounds.length === 1) map.setView(bounds[0], focus ? 16 : 14, { animate: true });
+        else if (bounds.length > 1) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+      }
     });
-  }, [points, focus, ready]);
+  }, [points, focus, ready, selectedId, onSelect]);
 
   return (
     <section className={`fleet-map-canvas real-map ${focus ? 'focus' : ''}`}>

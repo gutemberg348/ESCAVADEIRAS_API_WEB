@@ -8,7 +8,7 @@ import { deviceRepository } from './device.repository.js';
 import { encryptBleSecret } from './ble-secret.js';
 
 const publicDevice = ({ credentialHash, bleSecret, ...device }) => device;
-const scope = (user) => user.role === 'SUPER_ADMIN' ? {} : { machine: { companyId: user.companyId } };
+const scope = (user) => user.role === 'SUPER_ADMIN' ? { archivedAt: null } : { archivedAt: null, machine: { companyId: user.companyId } };
 
 function firmwareManifest(device, credential) {
   const hardwareConfig = {
@@ -49,7 +49,7 @@ function firmwareManifest(device, credential) {
 
 async function allowed(user, id) {
   const device = await deviceRepository.find(id);
-  if (!device) throw new NotFoundError('Dispositivo não encontrado');
+  if (!device || device.archivedAt || !device.machine) throw new NotFoundError('Dispositivo não encontrado ou já retirado');
   if (user.role !== 'SUPER_ADMIN' && device.machine.companyId !== user.companyId) throw new AuthorizationError();
   return device;
 }
@@ -66,6 +66,8 @@ export const deviceService = {
   async create(user, data) {
     await machineService.get(user, data.machineId);
     if (await deviceRepository.findByMachine(data.machineId)) throw new ConflictError('A máquina já possui um dispositivo vinculado');
+    if (await deviceRepository.findByCode(data.deviceCode)) throw new ConflictError('Este código de ESP32 já foi usado. Escolha outro código para a nova placa.');
+    if (data.hardwareSerial && await deviceRepository.findBySerial(data.hardwareSerial)) throw new ConflictError('Este serial já está vinculado a outra placa. Confira o número ou deixe o campo vazio.');
     const credential = crypto.randomBytes(32).toString('base64url');
     const mqttClientId = data.mqttClientId || `empimecatronic-${data.deviceCode.toLowerCase()}-${crypto.randomBytes(4).toString('hex')}`;
     const created = await deviceRepository.create({
@@ -100,9 +102,8 @@ export const deviceService = {
     return publicDevice(updated);
   },
   async revoke(user, id) {
-    await allowed(user, id);
-    const updated = await deviceRepository.update(id, { active: false, revokedAt: new Date() });
-    await audit(user, 'DEVICE_REVOKED', updated);
+    const current = await allowed(user, id);
+    const updated = await deviceRepository.archive(current, user.sub);
     return publicDevice(updated);
   }
 };

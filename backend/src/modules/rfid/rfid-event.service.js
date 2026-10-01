@@ -9,7 +9,7 @@ import { rfidService } from './rfid.service.js';
 export async function receiveRfidEvent(deviceCode, raw) {
   const event = rfidEventSchema.parse(raw);
   const device = await prisma.device.findUnique({ where: { deviceCode }, include: { machine: true } });
-  if (!device?.active || !device.machine.active || device.machine.deletedAt) throw new NotFoundError('Dispositivo ou máquina inativo');
+  if (!device?.active || !device.machine?.active || device.machine.deletedAt) throw new NotFoundError('Dispositivo ou máquina inativo');
   await verifyDeviceCredential(device, event.authToken);
   const cacheKey = `rfid:result:${device.id}:${event.eventId}`;
   const cached = await redis.get(cacheKey);

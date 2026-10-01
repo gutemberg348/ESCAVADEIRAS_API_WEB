@@ -31,12 +31,11 @@ import {
   LogOut,
   MapPin,
   Navigation,
-  Radio,
   RefreshCw,
+  Satellite,
   Server,
   Settings2,
   ShieldCheck,
-  Signal,
   UserRound,
   Wifi,
   WifiOff,
@@ -546,9 +545,9 @@ function HomeScreen({ firstName, profile, machine, alerts, connection, theme, st
       <SectionHeader eyebrow="Leitura instantânea" title="Telemetria principal" theme={theme} action="Detalhes" onAction={() => setScreen('machine')} />
       <View style={styles.metricGrid}>
         <MetricCard icon={BatteryCharging} label="Tensão" value={state.voltage} unit="V" detail="Sistema elétrico" theme={theme} />
-        <MetricCard icon={Zap} label="Corrente" value={state.current} unit="A" detail="Consumo instantâneo" theme={theme} />
+        <MetricCard icon={Zap} label="Corrente" value={state.current} unit="A" detail={state.current == null ? 'Sensor sem calibração' : 'Consumo instantâneo'} theme={theme} />
         <MetricCard icon={Gauge} label="Velocidade" value={state.speed} unit="km/h" detail="Movimento atual" theme={theme} />
-        <MetricCard icon={Signal} label="Sinal Wi-Fi" value={state.signalStrength} unit="dBm" detail={signalQuality(state.signalStrength)} theme={theme} />
+        <MetricCard icon={Satellite} label="Satélites GPS" value={machine.telemetry?.[0]?.gpsSatellites} unit="sat" detail={state.gpsValid ? 'Posição válida' : 'Aguardando GPS'} theme={theme} />
       </View>
 
       <SectionHeader eyebrow="Geolocalização" title="Posição da máquina" theme={theme} action="Tela cheia" onAction={() => setScreen('map')} />
@@ -597,9 +596,9 @@ function MachineScreen({ machine, theme, styles, onRefresh }) {
       <SectionHeader eyebrow="Sensores conectados" title="Estado atual" theme={theme} />
       <View style={styles.metricGrid}>
         <MetricCard icon={BatteryCharging} label="Tensão" value={state.voltage} unit="V" detail="Circuito principal" theme={theme} />
-        <MetricCard icon={Activity} label="Corrente" value={state.current} unit="A" detail="Carga do sistema" theme={theme} />
+        <MetricCard icon={Activity} label="Corrente" value={state.current} unit="A" detail={state.current == null ? 'Sensor sem calibração' : 'Carga do sistema'} theme={theme} />
         <MetricCard icon={Gauge} label="Velocidade" value={state.speed} unit="km/h" detail="Deslocamento" theme={theme} />
-        <MetricCard icon={Radio} label="Sinal" value={state.signalStrength} unit="dBm" detail={signalQuality(state.signalStrength)} theme={theme} />
+        <MetricCard icon={Satellite} label="Satélites GPS" value={machine.telemetry?.[0]?.gpsSatellites} unit="sat" detail={state.gpsValid ? 'Posição válida' : 'Aguardando GPS'} theme={theme} />
       </View>
 
       <SectionHeader eyebrow="Análise operacional" title="Comportamento recente" theme={theme} />
@@ -608,7 +607,7 @@ function MachineScreen({ machine, theme, styles, onRefresh }) {
       <SectionHeader eyebrow="Diagnóstico" title="Saúde dos sistemas" theme={theme} />
       <View style={styles.listCard}>
         <HealthRow icon={Wifi} label="Comunicação IoT" value={machine.status === 'ONLINE' ? 'Operacional' : 'Sem conexão'} healthy={machine.status === 'ONLINE'} theme={theme} styles={styles} />
-        <HealthRow icon={MapPin} label="Posicionamento GPS" value={state.latitude != null ? 'Posição recebida' : 'Aguardando sinal'} healthy={state.latitude != null} theme={theme} styles={styles} />
+        <HealthRow icon={MapPin} label="Posicionamento GPS" value={state.gpsValid ? 'Posição atual' : state.latitude != null ? 'Última posição conhecida' : 'Aguardando sinal'} healthy={state.gpsValid} theme={theme} styles={styles} />
         <HealthRow icon={Cpu} label="Dispositivo ESP32" value={machine.device?.deviceCode || 'Não vinculado'} healthy={Boolean(machine.device)} theme={theme} styles={styles} last />
       </View>
     </>
@@ -744,14 +743,6 @@ function HealthRow({ icon: Icon, label, value, healthy, theme, styles, last }) {
   );
 }
 
-function signalQuality(signal) {
-  if (signal === null || signal === undefined) return 'Sem leitura';
-  if (signal >= -70) return 'Sinal excelente';
-  if (signal >= -85) return 'Sinal estável';
-  if (signal >= -100) return 'Sinal fraco';
-  return 'Sinal crítico';
-}
-
 function initials(name = '') {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'OP';
 }
@@ -762,7 +753,7 @@ const staticStyles = StyleSheet.create({
   splashLetter: { color: '#172000', fontSize: 31, fontWeight: '900', letterSpacing: -2 },
   splashLogo: { color: '#F3F7F1', fontSize: 26, fontWeight: '900', letterSpacing: -1.8 },
   splashAccent: { color: '#D9FF43' },
-  splashCaption: { color: '#7E8B83', fontSize: 7.5, fontWeight: '800', letterSpacing: 2.6, marginTop: 7 },
+  splashCaption: { color: '#AAB8AF', fontSize: 10, fontWeight: '800', letterSpacing: 1.6, marginTop: 8 },
   splashLine: { width: 70, height: 2, backgroundColor: '#26342D', marginTop: 54, overflow: 'hidden' },
   splashLineActive: { width: 46, height: 2, backgroundColor: '#D9FF43' },
 });
@@ -783,100 +774,100 @@ function createStyles(theme) {
     loginIntro: { paddingTop: 46, paddingBottom: 36 },
     loginIntroCompact: { paddingTop: 22, paddingBottom: 20 },
     secureLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-    secureLabelText: { color: theme.success, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+    secureLabelText: { color: theme.success, fontSize: 11, fontWeight: '900', letterSpacing: .7 },
     loginTitle: { color: theme.text, fontSize: 41, lineHeight: 44, fontWeight: '800', letterSpacing: -2.3, marginTop: 17 },
     loginTitleAccent: { color: theme.accent },
     loginCopy: { color: theme.textSecondary, fontSize: 14, lineHeight: 21, maxWidth: 360, marginTop: 15 },
     loginPanel: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 20, padding: 21, shadowColor: theme.shadow, shadowOpacity: theme.mode === 'dark' ? .2 : .07, shadowRadius: 25, shadowOffset: { width: 0, height: 12 } },
     loginPanelCompact: { marginTop: 18, paddingVertical: 18 },
-    loginPanelEyebrow: { color: theme.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+    loginPanelEyebrow: { color: theme.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: .7 },
     loginPanelTitle: { color: theme.text, fontSize: 23, fontWeight: '800', letterSpacing: -.8, marginTop: 6, marginBottom: 12 },
-    inputLabel: { color: theme.textSecondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 14, marginBottom: 7 },
+    inputLabel: { color: theme.textSecondary, fontSize: 12, fontWeight: '900', letterSpacing: .55, marginTop: 14, marginBottom: 7 },
     inputWrap: { minHeight: 54, borderWidth: 1.5, borderColor: theme.border, borderRadius: 13, backgroundColor: theme.surfaceRaised, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14 },
     inputWrapFocused: { borderColor: theme.accent, backgroundColor: theme.surface },
     input: { flex: 1, color: theme.text, fontSize: 15, minHeight: 52, paddingVertical: 0 },
     loginError: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, backgroundColor: theme.dangerSoft, borderRadius: 10, padding: 11, marginTop: 14 },
-    loginErrorText: { color: theme.danger, fontSize: 10, lineHeight: 15, flex: 1 },
+    loginErrorText: { color: theme.danger, fontSize: 12, lineHeight: 18, flex: 1 },
     loginButton: { minHeight: 54, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, marginTop: 19 },
     loginButtonDisabled: { opacity: .65 },
     loginButtonText: { color: theme.accentText, fontSize: 14, fontWeight: '900' },
     serverLine: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 15 },
-    serverText: { color: theme.textMuted, fontSize: 10, maxWidth: 280 },
+    serverText: { color: theme.textMuted, fontSize: 11, maxWidth: 280 },
     pageIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 },
-    pageEyebrow: { color: theme.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+    pageEyebrow: { color: theme.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: .65 },
     pageTitle: { color: theme.text, fontSize: 28, fontWeight: '800', letterSpacing: -1.35, marginTop: 5 },
-    pageSubtitle: { color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
+    pageSubtitle: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 5 },
     liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.successSoft, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 12, marginBottom: 3 },
     liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.success },
-    liveText: { color: theme.success, fontSize: 9, fontWeight: '900', letterSpacing: .6 },
+    liveText: { color: theme.success, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
     heroCard: { backgroundColor: '#14221C', borderWidth: 1, borderColor: '#2A3D33', borderRadius: 18, padding: 20, overflow: 'hidden' },
     heroGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: '#D9FF4312', right: -70, top: -90 },
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    heroEyebrow: { color: '#84928A', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+    heroEyebrow: { color: '#AAB8AF', fontSize: 11, fontWeight: '900', letterSpacing: .7 },
     heroCode: { color: '#F2F6F1', fontSize: 30, fontWeight: '900', letterSpacing: -1.7, marginTop: 7 },
-    heroName: { color: '#9FAEA5', fontSize: 12, marginTop: 2 },
+    heroName: { color: '#C0CFC5', fontSize: 14, marginTop: 4 },
     heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 25, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#2B3D34' },
     heroMetaItem: { flex: 1, flexDirection: 'row', gap: 9, alignItems: 'center' },
     heroMetaDivider: { width: 1, height: 31, backgroundColor: '#2B3D34', marginHorizontal: 13 },
-    heroMetaLabel: { color: '#718179', fontSize: 8, fontWeight: '900', letterSpacing: .8 },
-    heroMetaValue: { color: '#DDE5DF', fontSize: 11, fontWeight: '700', marginTop: 3 },
+    heroMetaLabel: { color: '#AAB8AF', fontSize: 10, fontWeight: '900', letterSpacing: .5 },
+    heroMetaValue: { color: '#EAF0EB', fontSize: 12, fontWeight: '700', marginTop: 4 },
     heroAction: { height: 44, borderRadius: 11, backgroundColor: '#D9FF43', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, marginTop: 18 },
-    heroActionText: { color: '#172000', fontSize: 10, fontWeight: '900' },
+    heroActionText: { color: '#172000', fontSize: 13, fontWeight: '900' },
     metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
     listCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     allClear: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 17 },
     allClearIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: theme.successSoft, alignItems: 'center', justifyContent: 'center' },
-    allClearTitle: { color: theme.text, fontSize: 13, fontWeight: '800' },
-    allClearCopy: { color: theme.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+    allClearTitle: { color: theme.text, fontSize: 15, fontWeight: '800' },
+    allClearCopy: { color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 4 },
     machineCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 17, padding: 17 },
     machineCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     machineIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     machineIcon: { width: 47, height: 47, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     machineCardCode: { color: theme.text, fontSize: 18, fontWeight: '900', letterSpacing: -.7 },
-    machineCardName: { color: theme.textSecondary, fontSize: 11, marginTop: 2 },
+    machineCardName: { color: theme.textSecondary, fontSize: 13, marginTop: 3 },
     machineSpecs: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: theme.border, marginTop: 17, paddingTop: 15, rowGap: 14 },
     infoItem: { width: '50%' },
-    infoLabel: { color: theme.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: .8 },
-    infoValue: { color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 4, paddingRight: 8 },
+    infoLabel: { color: theme.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: .55 },
+    infoValue: { color: theme.text, fontSize: 14, fontWeight: '700', marginTop: 5, paddingRight: 8 },
     healthRow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderBottomColor: theme.border, paddingVertical: 14 },
     healthIcon: { width: 37, height: 37, borderRadius: 11, backgroundColor: theme.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
-    healthLabel: { color: theme.text, fontSize: 12.5, fontWeight: '800' },
-    healthValue: { color: theme.textSecondary, fontSize: 10.5, marginTop: 3 },
+    healthLabel: { color: theme.text, fontSize: 14, fontWeight: '800' },
+    healthValue: { color: theme.textSecondary, fontSize: 12, marginTop: 4 },
     healthDot: { width: 7, height: 7, borderRadius: 4 },
     locationSummary: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, padding: 17, marginTop: 13 },
     locationSummaryHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
     locationMachineIcon: { width: 43, height: 43, borderRadius: 13, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     locationMachineCode: { color: theme.text, fontSize: 15, fontWeight: '900' },
-    locationMachineName: { color: theme.textSecondary, fontSize: 10.5, marginTop: 2 },
+    locationMachineName: { color: theme.textSecondary, fontSize: 12, marginTop: 3 },
     locationRows: { borderTopWidth: 1, borderTopColor: theme.border, marginTop: 16, paddingTop: 4 },
     infoLine: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 },
     infoLineIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: theme.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
-    infoLineLabel: { color: theme.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: .5 },
-    infoLineValue: { color: theme.text, fontSize: 12, fontWeight: '700', marginTop: 3 },
+    infoLineLabel: { color: theme.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: .4 },
+    infoLineValue: { color: theme.text, fontSize: 14, fontWeight: '700', marginTop: 4 },
     alertsCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     profileCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 18, padding: 20, alignItems: 'center' },
     profileAvatar: { width: 66, height: 66, borderRadius: 21, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     profileInitials: { color: theme.accentText, fontSize: 20, fontWeight: '900' },
     profileName: { color: theme.text, fontSize: 18, fontWeight: '800', letterSpacing: -.5, marginTop: 13 },
-    profileRole: { color: theme.textSecondary, fontSize: 11, marginTop: 3 },
+    profileRole: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     profileFacts: { alignSelf: 'stretch', borderTopWidth: 1, borderTopColor: theme.border, marginTop: 18, paddingTop: 5 },
     settingsCard: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 15 },
     settingRow: { minHeight: 69, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
     settingCopy: { flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 },
-    settingTitle: { color: theme.text, fontSize: 12.5, fontWeight: '800' },
-    settingCaption: { color: theme.textSecondary, fontSize: 10.5, lineHeight: 15, marginTop: 3, maxWidth: 210 },
+    settingTitle: { color: theme.text, fontSize: 14, fontWeight: '800' },
+    settingCaption: { color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4, maxWidth: 210 },
     settingDivider: { height: 1, backgroundColor: theme.border },
     serverOnline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     serverOnlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.success },
-    serverOnlineText: { color: theme.success, fontSize: 8.5, fontWeight: '900', letterSpacing: .7 },
+    serverOnlineText: { color: theme.success, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
     logoutButton: { height: 48, borderWidth: 1, borderColor: theme.danger, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 17 },
-    logoutText: { color: theme.danger, fontSize: 10, fontWeight: '900' },
+    logoutText: { color: theme.danger, fontSize: 13, fontWeight: '900' },
     errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.dangerSoft, borderRadius: 13, padding: 13, marginBottom: 16 },
-    errorTitle: { color: theme.danger, fontSize: 11.5, fontWeight: '900' },
-    errorCopy: { color: theme.danger, fontSize: 10.5, lineHeight: 15, marginTop: 2 },
+    errorTitle: { color: theme.danger, fontSize: 13, fontWeight: '900' },
+    errorCopy: { color: theme.danger, fontSize: 12, lineHeight: 18, marginTop: 3 },
     retryButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     loadingState: { minHeight: 360, alignItems: 'center', justifyContent: 'center' },
     loadingTitle: { color: theme.text, fontSize: 15, fontWeight: '800', marginTop: 16 },
-    loadingCopy: { color: theme.textSecondary, fontSize: 10, marginTop: 5 },
+    loadingCopy: { color: theme.textSecondary, fontSize: 12, marginTop: 5 },
   });
 }

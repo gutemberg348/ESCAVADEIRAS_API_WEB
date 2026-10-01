@@ -23,7 +23,7 @@ gatewayRouter.post('/batch', validate(batchSchema), async (req, res) => {
     let frame;
     try { frame = wireSchema.parse(JSON.parse(record.raw)); } catch { throw new ValidationError('Pacote Bluetooth inválido'); }
     const device = await prisma.device.findUnique({ where: { deviceCode: frame.deviceCode }, include: { machine: true } });
-    if (!device?.active || device.revokedAt || !device.bleSecret || !device.machine.active || device.machine.deletedAt) throw new AuthorizationError('Dispositivo Bluetooth não provisionado ou revogado');
+    if (!device?.active || device.revokedAt || !device.bleSecret || !device.machine?.active || device.machine.deletedAt) throw new AuthorizationError('Dispositivo Bluetooth não provisionado ou revogado');
     if (actor.role !== 'SUPER_ADMIN' && actor.companyId !== device.machine.companyId) throw new AuthorizationError();
     const expected = crypto.createHmac('sha256', decryptBleSecret(device.bleSecret)).update(record.raw).digest();
     if (!crypto.timingSafeEqual(expected, Buffer.from(record.signature, 'hex'))) throw new AuthorizationError('Assinatura da leitura inválida');
@@ -74,7 +74,7 @@ gatewayRouter.post('/batch', validate(batchSchema), async (req, res) => {
     if (outcome.fresh) {
       if (reading) {
         const state = await prisma.machineCurrentState.findUnique({ where: { machineId: device.machineId } });
-        emitMachine(device.machineId, 'machine:telemetry', { ...state, timestamp: capturedAt, metadata: reading.metadata });
+        emitMachine(device.machineId, 'machine:telemetry', { ...state, timestamp: capturedAt, gpsSatellites: reading.gpsSatellites, metadata: reading.metadata });
       }
     }
     accepted.push({ eventId: frame.eventId, deviceCode: frame.deviceCode, duplicate: !!outcome.duplicate, historical: !outcome.fresh, rfid: outcome.rfid });

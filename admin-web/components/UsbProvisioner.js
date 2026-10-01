@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CheckCircle2, Usb, Wrench } from "lucide-react";
 import { provisionOverUsb } from "../services/usbProvisioning.mjs";
 
-export default function UsbProvisioner({ provisioning }) {
+export default function UsbProvisioner({ provisioning, onComplete }) {
   const [state, setState] = useState("idle"),
     [message, setMessage] = useState("");
   async function installIdentity() {
@@ -21,6 +21,7 @@ export default function UsbProvisioner({ provisioning }) {
       setMessage(
         `${provisioning.device.code} configurado e confirmado após reiniciar. Agora procure esse dispositivo no Bluetooth do aplicativo.`,
       );
+      onComplete?.();
     } catch (error) {
       if (error.name === "NotFoundError") {
         setState("idle");

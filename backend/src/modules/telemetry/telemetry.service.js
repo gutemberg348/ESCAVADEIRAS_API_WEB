@@ -7,7 +7,7 @@ import { rfidService } from '../rfid/rfid.service.js';
 
 async function authenticateDevice(code, token) {
   const device = await telemetryRepository.device(code);
-  if (!device?.active || !device.machine.active || device.machine.deletedAt) throw new NotFoundError('Dispositivo ou máquina inativo');
+  if (!device?.active || !device.machine?.active || device.machine.deletedAt) throw new NotFoundError('Dispositivo ou máquina inativo');
   await verifyDeviceCredential(device, token);
   return device;
 }
@@ -32,7 +32,7 @@ export const telemetryService = {
     await telemetryRepository.deviceSeen(device.id, { lastSeenAt: receivedAt });
     await telemetryRepository.status(device.machineId, 'ONLINE');
     const rfid = telemetry.rfidCode ? await rfidService.scan(device.machine, telemetry.rfidCode) : undefined;
-    const event = { ...saved, machineId: device.machineId, deviceId: device.id, timestamp, rfid, metadata: telemetry.metadata };
+    const event = { ...saved, machineId: device.machineId, deviceId: device.id, timestamp, rfid, gpsSatellites: telemetry.gpsSatellites, metadata: telemetry.metadata };
     await redis.set(`machine:${device.machineId}:state`, JSON.stringify(event), 'EX', 3600).catch(() => {});
     emitMachine(device.machineId, 'machine:telemetry', event);
     return event;

@@ -149,11 +149,11 @@ export function TelemetryTrend({ telemetry = [], theme }) {
   const values = telemetry
     .slice(0, 16)
     .reverse()
+    .filter((item) => item.voltage != null)
     .map((item) => Number(item.voltage))
     .filter(Number.isFinite);
-  const chartValues = values.length ? values : [0];
-  const min = Math.min(...chartValues);
-  const max = Math.max(...chartValues);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 0;
   const range = Math.max(max - min, 0.5);
 
   return (
@@ -165,20 +165,20 @@ export function TelemetryTrend({ telemetry = [], theme }) {
         </View>
         <Text style={[styles.chartCount, { color: theme.textSecondary }]}>{values.length} leituras</Text>
       </View>
-      <View style={styles.chartBars}>
-        {chartValues.map((value, index) => (
+      {values.length ? <View style={styles.chartBars}>
+        {values.map((value, index) => (
           <View
             key={`${value}-${index}`}
             style={[
               styles.chartBar,
               {
-                backgroundColor: index === chartValues.length - 1 ? theme.accent : theme.border,
-                height: values.length ? 18 + ((value - min) / range) * 52 : 2,
+                backgroundColor: index === values.length - 1 ? theme.accent : theme.border,
+                height: 18 + ((value - min) / range) * 52,
               },
             ]}
           />
         ))}
-      </View>
+      </View> : <Text style={[styles.chartEmpty, { color: theme.textSecondary }]}>Ainda não há leituras de tensão salvas no servidor.</Text>}
       <View style={styles.chartFooter}>
         <Text style={[styles.chartAxis, { color: theme.textMuted }]}>MAIS ANTIGO</Text>
         <Text style={[styles.chartAxis, { color: theme.textMuted }]}>AGORA</Text>
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   brandMark: { width: 31, height: 31, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   brandLetter: { fontSize: 17, fontWeight: '900', letterSpacing: -1 },
   brandName: { fontSize: 13, fontWeight: '900', letterSpacing: -.6 },
-  brandCaption: { fontSize: 8, fontWeight: '700', letterSpacing: 1.05, marginTop: 1 },
+  brandCaption: { fontSize: 10, fontWeight: '700', letterSpacing: .7, marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', right: -2, top: -3, minWidth: 15, height: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
@@ -275,16 +275,16 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 10, fontWeight: '900', letterSpacing: .7 },
   metricCard: { width: '48.7%', minHeight: 145, borderWidth: 1, borderRadius: 14, padding: 15 },
   metricIcon: { width: 35, height: 35, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  metricLabel: { fontSize: 10, fontWeight: '800', letterSpacing: .9 },
+  metricLabel: { fontSize: 12, fontWeight: '800', letterSpacing: .45 },
   metricValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 5 },
   metricValue: { fontSize: 25, fontWeight: '800', letterSpacing: -1.4 },
   metricUnit: { fontSize: 12, fontWeight: '600' },
-  metricDetail: { fontSize: 11, marginTop: 5 },
+  metricDetail: { fontSize: 12, lineHeight: 17, marginTop: 6 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 27, marginBottom: 13 },
-  eyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -.7, marginTop: 4 },
+  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: .65 },
+  sectionTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -.55, marginTop: 4 },
   sectionAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
-  sectionActionText: { fontSize: 11, fontWeight: '800' },
+  sectionActionText: { fontSize: 12, fontWeight: '800' },
   mapCard: { height: 218, borderRadius: 16, borderWidth: 1, overflow: 'hidden', position: 'relative' },
   mapCardLarge: { height: 390 },
   mapRoad: { position: 'absolute', width: 520, height: 48, borderRadius: 30 },
@@ -297,24 +297,25 @@ const styles = StyleSheet.create({
   mapCode: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 5, marginTop: 5 },
   mapCodeText: { fontSize: 8, fontWeight: '900', letterSpacing: .4 },
   locationOverlay: { position: 'absolute', left: 12, right: 54, bottom: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, shadowColor: '#000', shadowOpacity: .08, shadowRadius: 12 },
-  locationEyebrow: { fontSize: 8, fontWeight: '900', letterSpacing: .8 },
-  locationCoordinates: { fontSize: 13, fontWeight: '800', marginTop: 3 },
-  locationUpdate: { fontSize: 10.5, marginTop: 3 },
+  locationEyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: .55 },
+  locationCoordinates: { fontSize: 14, fontWeight: '800', marginTop: 3 },
+  locationUpdate: { fontSize: 12, marginTop: 4 },
   mapOpen: { position: 'absolute', right: 12, bottom: 12, width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   chartCard: { borderWidth: 1, borderRadius: 16, padding: 17 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   chartTitle: { fontSize: 15, fontWeight: '800', letterSpacing: -.4, marginTop: 4 },
-  chartCount: { fontSize: 10, marginTop: 3 },
+  chartCount: { fontSize: 12, marginTop: 3 },
+  chartEmpty: { minHeight: 98, textAlign: 'center', textAlignVertical: 'center', fontSize: 13, lineHeight: 19 },
   chartBars: { height: 75, flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 20 },
   chartBar: { flex: 1, minWidth: 3, borderRadius: 3 },
   chartFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  chartAxis: { fontSize: 8, fontWeight: '800', letterSpacing: .8 },
+  chartAxis: { fontSize: 10, fontWeight: '800', letterSpacing: .5 },
   alertRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, paddingVertical: 14 },
   alertIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   alertCopy: { flex: 1 },
-  alertType: { fontSize: 9, fontWeight: '900', letterSpacing: .7, textTransform: 'uppercase' },
-  alertMessage: { fontSize: 13, fontWeight: '700', lineHeight: 18, marginTop: 3 },
-  alertMeta: { fontSize: 10, marginTop: 4 },
+  alertType: { fontSize: 11, fontWeight: '900', letterSpacing: .5, textTransform: 'uppercase' },
+  alertMessage: { fontSize: 14, fontWeight: '700', lineHeight: 20, marginTop: 4 },
+  alertMeta: { fontSize: 12, marginTop: 5 },
   emptyState: { borderWidth: 1, borderRadius: 16, padding: 25, alignItems: 'center' },
   emptyIcon: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 15 },
@@ -324,6 +325,6 @@ const styles = StyleSheet.create({
   bottomNav: { flexShrink: 0, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 7 },
   navItem: { flex: 1, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
   navIconWrap: { width: 39, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  navText: { fontSize: 9.5, fontWeight: '700', marginTop: 3 },
+  navText: { fontSize: 11, fontWeight: '700', marginTop: 3 },
   navDot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, right: 7, top: 4 },
 });

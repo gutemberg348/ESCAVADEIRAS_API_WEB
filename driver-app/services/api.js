@@ -40,7 +40,10 @@ export async function api(path, options = {}, token) {
     return body;
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new Error('O servidor demorou para responder. Verifique sua conexão.');
+      throw new Error('O servidor demorou para responder. Confira o sinal da internet (Wi-Fi ou dados móveis) e tente novamente.');
+    }
+    if (error instanceof TypeError || /network request failed|failed to fetch|network error/i.test(error.message || '')) {
+      throw new Error('Sem conexão com o servidor. Ative o Wi-Fi ou os dados móveis e tente novamente. O Bluetooth conecta à máquina, mas o login e a validação do cartão precisam de internet. Se continuar, avise o administrador para conferir o endereço da API.');
     }
     throw error;
   } finally {

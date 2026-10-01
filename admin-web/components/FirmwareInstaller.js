@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CheckCircle2, Cpu, Download, Usb } from "lucide-react";
 import { resetToApplication } from "../services/usbProvisioning.mjs";
 
-export default function FirmwareInstaller() {
+export default function FirmwareInstaller({ onComplete }) {
   const [state, setState] = useState("idle"),
     [message, setMessage] = useState(""),
     [progress, setProgress] = useState(0);
@@ -66,6 +66,7 @@ export default function FirmwareInstaller() {
       setMessage(
         "Firmware-base gravado. Agora crie/vincule o dispositivo e aplique a identidade USB.",
       );
+      onComplete?.();
     } catch (error) {
       if (error.name === "NotFoundError") {
         setState("idle");

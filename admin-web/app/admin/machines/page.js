@@ -4,15 +4,14 @@ import Link from "next/link";
 import {
   BatteryCharging,
   ChevronDown,
-  Filter,
   MapPin,
   Plus,
   Search,
   Signal,
-  SlidersHorizontal,
+  Trash2,
   Truck,
 } from "lucide-react";
-import { machines } from "../../../services/machine.service";
+import { deleteMachine, fleetMachines } from "../../../services/machine.service";
 import StatusBadge from "../../../components/StatusBadge";
 import PageHeader from "../../../components/PageHeader";
 import {
@@ -26,12 +25,12 @@ export default function Machines() {
     [status, setStatus] = useState("ALL"),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const result = await machines();
-      setList(result.data || []);
+      setList(await fleetMachines());
     } catch (loadError) {
       setError(loadError.message);
     } finally {
@@ -41,6 +40,19 @@ export default function Machines() {
   useEffect(() => {
     load();
   }, [load]);
+  async function remove(machine) {
+    if (!window.confirm(`Excluir ${machine.code} da frota? O histórico será mantido. Se houver ESP32 vinculado, ele também perderá o acesso e poderá ser substituído.`)) return;
+    setDeletingId(machine.id);
+    setError("");
+    try {
+      await deleteMachine(machine.id);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
   const filtered = useMemo(
     () =>
       list.filter((machine) => {
@@ -119,9 +131,6 @@ export default function Machines() {
                 </button>
               ))}
             </div>
-            <button className="filter-button">
-              <SlidersHorizontal size={15} /> Filtros
-            </button>
           </section>
           {filtered.length ? (
             <section className="surface-panel table-panel">
@@ -205,12 +214,12 @@ export default function Machines() {
                           </span>
                         </td>
                         <td>
-                          <Link
+                          <div className="machine-list-actions"><Link
                             className="row-action"
                             href={`/admin/machines/${machine.id}`}
                           >
                             Abrir <ChevronDown size={14} />
-                          </Link>
+                          </Link><button type="button" title={`Excluir ${machine.code}`} disabled={deletingId === machine.id} onClick={() => remove(machine)}><Trash2 size={14} /> Excluir</button></div>
                         </td>
                       </tr>
                     ))}

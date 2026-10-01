@@ -25,7 +25,9 @@ export default function BluetoothGateway({ session, machine, theme }) {
   const [error, setError] = useState('');
   const [syncStatus, setSyncStatus] = useState('Sem leituras pendentes');
   const [connected, setConnected] = useState(false);
+  const [connectedMachineId, setConnectedMachineId] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const manager = useRef(null);
   const deviceRef = useRef(null);
   const monitor = useRef(null);
@@ -147,6 +149,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
   async function scan() {
     setError('');
     setDevices([]);
+    setStatus('Preparando Bluetooth...');
     try {
       if (Constants.appOwnership === 'expo') {
         throw new Error('Esta função precisa do APK Empimecatrônic; o Expo Go não inclui Bluetooth.');
@@ -178,11 +181,13 @@ export default function BluetoothGateway({ session, machine, theme }) {
       if (adapterState !== 'PoweredOn') throw new Error('Ative o Bluetooth do celular e tente novamente.');
       setScanning(true);
       setStatus('Procurando escavadeiras próximas...');
+      let foundAny = false;
       manager.current.startDeviceScan([BLE_SERVICE], null, (err, device) => {
         if (!alive.current) return;
         if (err) {
           setScanning(false);
-          setError(err.message);
+          setStatus('Busca interrompida');
+          setError(bluetoothError(err));
           return;
         }
         if (!device) return;
@@ -192,6 +197,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
           (item) => item.active && item.deviceCode.toUpperCase() === deviceCode.toUpperCase(),
         );
         if (!known) return;
+        foundAny = true;
         const found = {
           id: device.id,
           name: advertisedName,
@@ -207,21 +213,24 @@ export default function BluetoothGateway({ session, machine, theme }) {
         manager.current?.stopDeviceScan();
         if (alive.current) {
           setScanning(false);
-          setStatus('Busca concluída');
+          setStatus(foundAny ? 'Escolha a escavadeira encontrada' : 'Nenhuma escavadeira encontrada');
+          if (!foundAny) setError('Nenhuma placa cadastrada apareceu. Aproxime-se da máquina, confirme que o ESP32 está ligado e com o firmware instalado, depois toque em Procurar novamente.');
         }
       }, 12000);
     } catch (err) {
       setScanning(false);
-      setError(err.message);
+      setStatus('Bluetooth não iniciado');
+      setError(bluetoothError(err));
     }
   }
 
   async function connect(item) {
     setError('');
+    setConnecting(true);
     manager.current?.stopDeviceScan();
     clearTimeout(scanTimer.current);
     setScanning(false);
-    setStatus('Conectando à escavadeira...');
+    setStatus(`Conectando a ${item.machine?.code || item.deviceCode}...`);
     try {
       monitor.current?.remove();
       disconnectListener.current?.remove();
@@ -285,32 +294,50 @@ export default function BluetoothGateway({ session, machine, theme }) {
       disconnectListener.current = manager.current.onDeviceDisconnected(device.id, () => {
         if (alive.current) {
           setConnected(false);
+          setConnectedMachineId(null);
+          setRfid('Aguardando leitura do cartão');
           setStatus('Bluetooth desconectado');
         }
       });
       setConnected(true);
+      setConnectedMachineId(item.machine?.id || null);
+      setRfid('Aguardando leitura do cartão');
       setStatus(`Conectado a ${item.machine?.code || item.deviceCode}`);
       setDevices([]);
     } catch (err) {
       setConnected(false);
-      setError(err.message);
+      setConnectedMachineId(null);
+      setStatus('Não foi possível conectar');
+      setError(bluetoothError(err));
       deviceRef.current?.cancelConnection().catch(() => {});
+    } finally {
+      setConnecting(false);
     }
   }
 
-  const active = Boolean(machine);
-  const title = active
-    ? `Operação ativa em ${machine.code}`
+  const active = Boolean(machine && machine.id === connectedMachineId);
+  const cardVerified = connected && rfid.startsWith('Operador identificado:');
+  const connectedOperation = connected && active && cardVerified;
+  const title = connecting
+    ? 'Conectando ao ESP32...'
+    : connectedOperation
+      ? `Operação ativa em ${machine.code}`
+      : cardVerified
+        ? 'Cartão validado. Atualizando operação...'
     : connected
       ? 'Aproxime seu cartão RFID'
       : 'Conecte à escavadeira';
-  const description = active
-    ? `${machine.name} está vinculada ao seu usuário. A telemetria já pode ser acompanhada.`
+  const description = connecting
+    ? 'Mantenha o Bluetooth ligado e o celular perto da escavadeira. Isso pode levar alguns segundos.'
+    : connectedOperation
+      ? `${machine.name} está vinculada ao seu usuário. A telemetria já pode ser acompanhada.`
+      : cardVerified
+        ? 'O servidor aceitou o cartão. Aguarde a confirmação do vínculo com esta máquina.'
     : connected
       ? 'Encoste o cartão cadastrado no leitor da máquina. O servidor identifica você automaticamente.'
       : 'Ligue a máquina, mantenha o aplicativo aberto e procure o ESP32 próximo.';
-  const headerColor = active ? theme.success : connected ? theme.accent : theme.textSecondary;
-  const HeaderIcon = active ? CheckCircle2 : connected ? CreditCard : Bluetooth;
+  const headerColor = connectedOperation ? theme.success : connected ? theme.accent : theme.textSecondary;
+  const HeaderIcon = connectedOperation ? CheckCircle2 : connected ? CreditCard : Bluetooth;
 
   return (
     <View
@@ -318,7 +345,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
         padding: 17,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: active ? theme.success : theme.border,
+        borderColor: connectedOperation ? theme.success : theme.border,
         backgroundColor: theme.surface,
         marginBottom: 18,
       }}
@@ -331,29 +358,34 @@ export default function BluetoothGateway({ session, machine, theme }) {
             borderRadius: 13,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: active ? theme.successSoft : theme.surfaceSoft,
+            backgroundColor: connectedOperation ? theme.successSoft : theme.surfaceSoft,
           }}
         >
           <HeaderIcon size={22} color={headerColor} strokeWidth={2.2} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: headerColor, fontSize: 8, fontWeight: '900', letterSpacing: 1.1 }}>
+          <Text style={{ color: headerColor, fontSize: 11, fontWeight: '900', letterSpacing: .6 }}>
             IDENTIFICAÇÃO DA OPERAÇÃO
           </Text>
-          <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900', marginTop: 3 }}>
+          <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', marginTop: 4 }}>
             {title}
           </Text>
         </View>
       </View>
 
-      <Text style={{ color: theme.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 13 }}>
+      <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 20, marginTop: 13 }}>
         {description}
       </Text>
 
+      <View accessibilityLiveRegion="polite" style={{ marginTop: 12, padding: 11, borderRadius: 10, backgroundColor: connected ? theme.successSoft : theme.surfaceSoft }}>
+        <Text style={{ color: connected ? theme.success : theme.textSecondary, fontSize: 12, fontWeight: '800' }}>{status}</Text>
+        {!connected && !scanning && !connecting ? <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }}>Ative o Bluetooth, ligue o ESP32 e toque em Procurar escavadeira.</Text> : null}
+      </View>
+
       <View style={{ flexDirection: 'row', marginTop: 17, marginBottom: 15 }}>
-        <JourneyStep number="1" label="Conectar" done={connected || active} theme={theme} />
-        <JourneyStep number="2" label="Ler cartão" done={active} theme={theme} />
-        <JourneyStep number="3" label="Iniciar" done={active} theme={theme} last />
+        <JourneyStep number="1" label="Conectar" done={connected} theme={theme} />
+        <JourneyStep number="2" label="Ler cartão" done={cardVerified} theme={theme} />
+        <JourneyStep number="3" label="Iniciar" done={connectedOperation} theme={theme} last />
       </View>
 
       {!connected ? (
@@ -361,7 +393,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
           label={scanning ? 'Procurando máquinas...' : 'Procurar escavadeira'}
           icon={scanning ? Signal : Bluetooth}
           onPress={scan}
-          disabled={scanning}
+          disabled={scanning || connecting}
           theme={theme}
         />
       ) : null}
@@ -370,6 +402,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
         <Pressable
           key={item.id}
           accessibilityRole="button"
+          disabled={connecting}
           onPress={() => connect(item)}
           style={({ pressed }) => ({
             minHeight: 54,
@@ -382,24 +415,24 @@ export default function BluetoothGateway({ session, machine, theme }) {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 11,
-            opacity: pressed ? 0.8 : 1,
+            opacity: connecting ? 0.55 : pressed ? 0.8 : 1,
           })}
         >
           <Truck size={19} color={theme.accent} />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
               {item.machine?.code || item.deviceCode}
             </Text>
-            <Text style={{ color: theme.textSecondary, fontSize: 10, marginTop: 2 }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 3 }}>
               {item.machine?.name || 'ESP32 cadastrado'}
             </Text>
           </View>
-          <Text style={{ color: theme.accent, fontSize: 9, fontWeight: '900' }}>CONECTAR</Text>
+          <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>{connecting ? 'CONECTANDO' : 'CONECTAR'}</Text>
         </Pressable>
       ))}
 
       {scanning && devices.length === 0 ? (
-        <Text style={{ color: theme.textMuted, fontSize: 10, textAlign: 'center', marginTop: 11 }}>
+        <Text style={{ color: theme.textMuted, fontSize: 12, textAlign: 'center', marginTop: 11 }}>
           A busca dura até 12 segundos. Aproxime-se da escavadeira.
         </Text>
       ) : null}
@@ -417,7 +450,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
           }}
         >
           <CreditCard size={20} color={theme.warning} />
-          <Text style={{ color: theme.warning, flex: 1, fontSize: 10.5, lineHeight: 16, fontWeight: '700' }}>
+          <Text style={{ color: theme.warning, flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '700' }}>
             {rfid}
           </Text>
         </View>
@@ -454,7 +487,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
           }}
         >
           <WifiOff size={17} color={theme.danger} />
-          <Text style={{ color: theme.danger, flex: 1, fontSize: 10.5, lineHeight: 15 }}>{error}</Text>
+          <Text style={{ color: theme.danger, flex: 1, fontSize: 12, lineHeight: 18 }}>{error}</Text>
         </View>
       ) : null}
 
@@ -471,8 +504,8 @@ export default function BluetoothGateway({ session, machine, theme }) {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: '800' }}>{syncStatus}</Text>
-          <Text style={{ color: theme.textMuted, fontSize: 8.5, marginTop: 3 }}>
+          <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '800' }}>{syncStatus}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
             {counts.total} pendente{counts.total === 1 ? '' : 's'} no celular
             {counts.rejected ? ` · ${counts.rejected} para revisar` : ''}
           </Text>
@@ -508,11 +541,11 @@ export default function BluetoothGateway({ session, machine, theme }) {
           onPress={() => deviceRef.current?.cancelConnection()}
           style={{ alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 10, marginTop: 4 }}
         >
-          <Text style={{ color: theme.textMuted, fontSize: 9, fontWeight: '800' }}>DESCONECTAR BLUETOOTH</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>DESCONECTAR BLUETOOTH</Text>
         </Pressable>
       ) : null}
 
-      <Text style={{ color: theme.textMuted, fontSize: 8.5, lineHeight: 13, marginTop: 5 }}>
+      <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
         Sem internet, a telemetria fica salva no celular. Por segurança, a operação só é iniciada quando o servidor valida o cartão.
       </Text>
     </View>
@@ -536,10 +569,10 @@ function JourneyStep({ number, label, done, last, theme }) {
           {done ? (
             <Check size={14} color="#FFFFFF" strokeWidth={3} />
           ) : (
-            <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: '900' }}>{number}</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900' }}>{number}</Text>
           )}
         </View>
-        <Text style={{ color: done ? theme.success : theme.textMuted, fontSize: 7.5, fontWeight: '800', marginTop: 5 }}>
+        <Text style={{ color: done ? theme.success : theme.textMuted, fontSize: 10, fontWeight: '800', marginTop: 5 }}>
           {label.toUpperCase()}
         </Text>
       </View>
@@ -576,8 +609,23 @@ function ActionButton({ label, icon: Icon, onPress, disabled, theme }) {
 function MiniMetric({ label, value, theme }) {
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ color: theme.textMuted, fontSize: 7, fontWeight: '900', letterSpacing: 0.7 }}>{label}</Text>
-      <Text style={{ color: theme.text, fontSize: 10.5, fontWeight: '800', marginTop: 3 }}>{value}</Text>
+      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.4 }}>{label}</Text>
+      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800', marginTop: 4 }}>{value}</Text>
     </View>
   );
+}
+
+function bluetoothError(error) {
+  const message = String(error?.message || '');
+  if (/poweredoff|powered off|ative o bluetooth/i.test(message) || error?.errorCode === 102) {
+    return 'O Bluetooth está desligado. Ative-o nas configurações do celular e toque em Procurar escavadeira.';
+  }
+  if (/permission|permiss|unauthorized|location service/i.test(message)) {
+    return 'Permita Bluetooth, Dispositivos próximos e Localização para este aplicativo nas configurações do Android.';
+  }
+  if (/timeout|disconnected|connection.*fail|conexão.*não negociou/i.test(message)) {
+    return 'A conexão com a placa não terminou. Aproxime o celular, confira se o ESP32 está ligado e tente novamente.';
+  }
+  if (/Expo Go|APK Empimecatrônic/i.test(message)) return message;
+  return 'Não foi possível usar o Bluetooth agora. Confira a placa e tente procurar a escavadeira novamente.';
 }

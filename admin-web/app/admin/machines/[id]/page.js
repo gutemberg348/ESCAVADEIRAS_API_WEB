@@ -14,7 +14,6 @@ import {
   Radio,
   Satellite,
   ShieldCheck,
-  Signal,
   Trash2,
   UserRound,
   Zap,
@@ -38,7 +37,7 @@ export default function MachineDetail({ params }) {
     [live, setLive] = useState(false);
   const [deleting, setDeleting] = useState(false);
   async function remove() {
-    if (!window.confirm(`Excluir ${item.code} do painel? O histórico será preservado para auditoria.`)) return;
+    if (!window.confirm(`Excluir ${item.code} da frota? O histórico será preservado, mas o ESP32 vinculado perderá o acesso.`)) return;
     setDeleting(true);
     setError("");
     try {
@@ -135,6 +134,7 @@ export default function MachineDetail({ params }) {
       </div>
     );
   const state = item.currentState || {};
+  const latestReading = item.telemetry?.[0];
   return (
     <div className="admin-page">
       <Link className="back-link" href="/admin/machines">
@@ -179,7 +179,7 @@ export default function MachineDetail({ params }) {
           label="Corrente"
           value={state.current}
           unit="A"
-          detail="Carga instantânea"
+          detail={state.current == null ? "Sensor ainda não calibrado" : "Carga instantânea"}
         />
         <TelemetryCard
           icon={Gauge}
@@ -189,11 +189,11 @@ export default function MachineDetail({ params }) {
           detail="Deslocamento atual"
         />
         <TelemetryCard
-          icon={Signal}
-          label="Sinal Wi-Fi"
-          value={state.signalStrength}
-          unit="dBm"
-          detail={signalQuality(state.signalStrength)}
+          icon={Satellite}
+          label="Satélites GPS"
+          value={latestReading?.gpsSatellites}
+          unit="sat"
+          detail={state.gpsValid ? "Posição válida" : "Aguardando fix GPS"}
         />
       </section>
       <section className="machine-info-strip">
@@ -233,11 +233,19 @@ export default function MachineDetail({ params }) {
           />
           <MapCard focus={item} />
         </article>
-        <article className="surface-panel trend-panel">
-          <PanelHeader eyebrow="HISTÓRICO RECENTE" title="Tensão da bateria" />
+        <article className="surface-panel trend-panel reading-summary-panel">
+          <PanelHeader eyebrow="ÚLTIMA LEITURA" title="Resumo da máquina" />
+          <div className="reading-summary-grid">
+            <div><BatteryCharging size={17} /><span>Tensão</span><strong>{displayNumber(state.voltage, ' V')}</strong></div>
+            <div><Zap size={17} /><span>Corrente</span><strong>{displayNumber(state.current, ' A')}</strong></div>
+            <div><Gauge size={17} /><span>Velocidade</span><strong>{displayNumber(state.speed, ' km/h')}</strong></div>
+            <div><Satellite size={17} /><span>Satélites</span><strong>{displayNumber(latestReading?.gpsSatellites)}</strong></div>
+          </div>
+          <div className="reading-summary-meta"><span><MapPin size={14}/>{state.gpsValid ? 'GPS com posição' : state.latitude != null ? 'Última posição conhecida' : 'Aguardando GPS'}</span><span><Clock3 size={14}/>{timeAgo(state.updatedAt)}</span></div>
+          <div className="reading-chart-heading"><b>Tensão recente</b><Link href="/admin/telemetry">Ver histórico completo →</Link></div>
           <div className="desktop-chart">
-            {trend.length ? (
-              trend.map((reading, index) => (
+            {trend.filter(reading => reading.voltage != null).length > 1 ? (
+              trend.filter(reading => reading.voltage != null).map((reading, index) => (
                 <div
                   key={reading.id || index}
                   style={{ height: `${barHeight(reading.voltage, trend)}%` }}
@@ -247,7 +255,7 @@ export default function MachineDetail({ params }) {
                 </div>
               ))
             ) : (
-              <p>Sem leituras no período</p>
+              <p>{trend.some(reading => reading.voltage != null) ? `Primeira leitura: ${displayNumber(latestReading?.voltage, ' V')}` : 'Sem leituras de tensão no período'}</p>
             )}
           </div>
           <div className="chart-axis">
@@ -337,8 +345,8 @@ export default function MachineDetail({ params }) {
           ))}
         </article>
       </section>
-      <section className="surface-panel machine-danger-zone">
-        <div><h2>Remover equipamento de teste</h2><p>A escavadeira será desativada e deixará de aparecer na frota. O histórico permanece salvo.</p></div>
+        <section className="surface-panel machine-danger-zone">
+          <div><h2>Excluir escavadeira</h2><p>A escavadeira sairá da frota. O ESP32 vinculado perderá acesso e o histórico permanecerá salvo.</p></div>
         <button className="danger-action" type="button" disabled={deleting} onClick={remove}><Trash2 size={16}/>{deleting ? "Excluindo..." : "Excluir escavadeira"}</button>
       </section>
     </div>
@@ -380,18 +388,12 @@ function coordinates(lat, lng) {
     ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
     : "Posição ainda não recebida";
 }
-function signalQuality(value) {
-  if (value == null) return "Sem leitura";
-  return value >= -70
-    ? "Excelente"
-    : value >= -85
-      ? "Estável"
-      : value >= -100
-        ? "Fraco"
-        : "Crítico";
+function displayNumber(value, unit = '') {
+  return value == null || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`;
 }
 function barHeight(value, values) {
   const numeric = values
+    .filter((item) => item.voltage != null)
     .map((item) => Number(item.voltage))
     .filter(Number.isFinite);
   if (!numeric.length) return 5;

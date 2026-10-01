@@ -14,5 +14,5 @@ export const machineService = {
   get: async (user,id) => { const item=await machineRepository.find(id); if(!item) throw new NotFoundError('Machine not found'); if(user.role!=='SUPER_ADMIN'&&item.companyId!==user.companyId) throw new AuthorizationError(); if(user.role==='DRIVER'&&!item.assignments.some((assignment)=>assignment.driverProfile.user.id===user.sub)) throw new AuthorizationError(); return item; },
   create: (user,data) => machineRepository.create({...data,companyId:user.role==='SUPER_ADMIN'?data.companyId:user.companyId}),
   update: async (user,id,data) => { await machineService.get(user,id); if(user.role!=='SUPER_ADMIN') delete data.companyId; return machineRepository.update(id,data); },
-  remove: async (user,id) => { await machineService.get(user,id); return machineRepository.remove(id); }, dashboard: (user) => machineRepository.dashboard(user.role==='SUPER_ADMIN'?undefined:user.companyId)
+  remove: async (user,id) => { await machineService.get(user,id); return machineRepository.remove(id,user.sub); }, dashboard: (user) => machineRepository.dashboard(user.role==='SUPER_ADMIN'?undefined:user.companyId)
 };
