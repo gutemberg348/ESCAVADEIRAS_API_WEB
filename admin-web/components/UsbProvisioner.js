@@ -1,11 +1,11 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { CheckCircle2, Usb, Wrench } from "lucide-react";
+import { provisionOverUsb } from "../services/usbProvisioning.mjs";
 
 export default function UsbProvisioner({ provisioning }) {
   const [state, setState] = useState("idle"),
     [message, setMessage] = useState("");
-  const portRef = useRef(null);
   async function installIdentity() {
     if (!("serial" in navigator)) {
       setState("error");
@@ -14,42 +14,12 @@ export default function UsbProvisioner({ provisioning }) {
     }
     setState("working");
     setMessage("Selecione a porta USB do ESP32.");
-    let reader;
     try {
       const port = await navigator.serial.requestPort();
-      portRef.current = port;
-      await port.open({ baudRate: 115200 });
-      await new Promise((resolve) => setTimeout(resolve, 1800));
-      setMessage("Enviando a identidade segura para o ESP32...");
-      const writer = port.writable.getWriter();
-      await writer.write(
-        new TextEncoder().encode(
-          `EMP_PROVISION:${JSON.stringify({ code: provisioning.device.code, token: provisioning.device.token })}\n`,
-        ),
-      );
-      writer.releaseLock();
-      const decoder = new TextDecoder();
-      reader = port.readable.getReader();
-      let response = "";
-      const timeout = setTimeout(() => reader.cancel().catch(() => {}), 10000);
-      while (true) {
-        const result = await reader.read();
-        if (result.done) break;
-        response += decoder.decode(result.value, { stream: true });
-        if (response.includes("EMP_PROVISION_OK:")) break;
-        if (response.includes("EMP_PROVISION_ERROR:"))
-          throw new Error(
-            response.split("EMP_PROVISION_ERROR:")[1].split(/[\r\n]/)[0],
-          );
-      }
-      clearTimeout(timeout);
-      if (!response.includes("EMP_PROVISION_OK:"))
-        throw new Error(
-          "O firmware não respondeu. Grave primeiro o firmware-base atualizado.",
-        );
+      await provisionOverUsb(port, provisioning.device, { onProgress: setMessage });
       setState("done");
       setMessage(
-        `${provisioning.device.code} configurado. O ESP32 reiniciará e anunciará esse código no Bluetooth.`,
+        `${provisioning.device.code} configurado e confirmado após reiniciar. Agora procure esse dispositivo no Bluetooth do aplicativo.`,
       );
     } catch (error) {
       if (error.name === "NotFoundError") {
@@ -57,16 +27,10 @@ export default function UsbProvisioner({ provisioning }) {
         setMessage("Seleção cancelada.");
       } else {
         setState("error");
-        setMessage(`Falha no provisionamento: ${error.message}`);
+        setMessage(error.name === "InvalidStateError" || error.name === "NetworkError"
+          ? "A porta USB está ocupada ou desconectada. Feche o Monitor Serial e desconecte o leitor RFID do painel antes de tentar novamente."
+          : `Falha na configuração: ${error.message}`);
       }
-    } finally {
-      try {
-        reader?.releaseLock();
-      } catch {}
-      try {
-        await portRef.current?.close();
-      } catch {}
-      portRef.current = null;
     }
   }
   return (

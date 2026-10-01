@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { CheckCircle2, Cpu, Download, Usb } from "lucide-react";
+import { resetToApplication } from "../services/usbProvisioning.mjs";
 
 export default function FirmwareInstaller() {
   const [state, setState] = useState("idle"),
@@ -25,7 +26,7 @@ export default function FirmwareInstaller() {
     try {
       const [{ ESPLoader, Transport }, response, port] = await Promise.all([
         import("esptool-js"),
-        fetch("/firmware/empimecatronic-esp32-base.bin"),
+        fetch("/firmware/empimecatronic-esp32-base.bin", { cache: "no-store" }),
         navigator.serial.requestPort(),
       ]);
       if (!response.ok)
@@ -56,7 +57,10 @@ export default function FirmwareInstaller() {
         reportProgress: (_file, written, total) =>
           setProgress(Math.round((written / total) * 100)),
       });
-      await loader.after("hard_reset");
+      // esptool-js 0.6's hard_reset only releases RTS; explicitly pulse EN.
+      await resetToApplication(port);
+      await transport.disconnect();
+      transport = null;
       setState("done");
       setProgress(100);
       setMessage(
