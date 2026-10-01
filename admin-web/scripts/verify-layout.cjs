@@ -5,12 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const base = process.env.UI_BASE_URL || 'http://localhost:3101';
 const company = { id: 'company', name: 'Empresa de teste', active: true, _count: { machines: 1, users: 1 } };
-const user = { id: 'user', name: 'Operador de teste', email: 'operador.com.nome.longo@empresa.example', companyId: company.id, active: true, role: 'SUPER_ADMIN' };
+const user = { id: 'user', name: 'Operador de teste', email: 'operador.com.nome.longo@empresa.example', companyId: company.id, company, active: true, role: 'SUPER_ADMIN' };
+const manager = { id: 'manager', name: 'Gerente de teste', email: 'gerente@empresa.example', companyId: company.id, company, active: true, role: 'MANAGER' };
 const reading = { id: 'reading', timestamp: new Date().toISOString(), voltage: 12.5, current: null, speed: 0, latitude: -7.05457, longitude: -37.27730, gpsSatellites: 6 };
 const machine = { id: 'machine', code: 'ESC-001', name: 'Escavadeira de teste', companyId: company.id, company, status: 'ONLINE', active: true, assignments: [], currentState: { online: true, voltage: 12.5, gpsValid: true, latitude: reading.latitude, longitude: reading.longitude, gpsUpdatedAt: reading.timestamp }, telemetry: [reading], alerts: [], commands: [] };
 const driver = { id: 'driver', user, rfidCards: [{ id: 'card', code: 'F7DB4632', active: true }], assignments: [] };
 const card = { ...driver.rfidCards[0], driverProfile: driver };
-const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/devices': [], '/companies': { data: [company] }, '/machines': { data: [machine], pagination: { total: 1 } }, '/machines/machine': machine, '/telemetry/machines/machine': [reading], '/alerts': [], '/commands': [], '/users': [user], '/firmware': [] };
+const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/devices': [], '/companies': { data: [{ ...company, _count: { machines: 1, users: 1 } }], pagination: { total: 1 } }, '/companies/company': { ...company, machines: [machine], users: [user] }, '/companies/company-created': { id: 'company-created', name: 'Empresa nova', active: true, _count: { machines: 0, users: 0 }, machines: [], users: [] }, '/machines': { data: [machine], pagination: { total: 1 } }, '/machines/machine': machine, '/telemetry/machines/machine': [reading], '/alerts': [], '/commands': [], '/users': [user, manager], '/firmware': [] };
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -27,9 +28,11 @@ const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/de
       }, { user });
       await page.route('**/api/v1/**', route => {
         const key = new URL(route.request().url()).pathname.replace('/api/v1', '');
+        if (key === '/companies' && route.request().method() === 'POST') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'company-created', name: 'Empresa nova' }) });
+        if (key === '/companies/company' && route.request().method() === 'PATCH') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...company, ...route.request().postDataJSON() }) });
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify(fixtures[key] || []) });
       });
-      for (const route of ['/admin', '/admin/drivers', '/admin/rfid', '/admin/devices', '/admin/machines', '/admin/machines/new', '/admin/machines/machine', '/admin/companies', '/admin/alerts', '/admin/commands', '/admin/map', '/admin/telemetry', '/admin/users', '/admin/firmware', '/login']) {
+      for (const route of ['/admin', '/admin/drivers', '/admin/rfid', '/admin/devices', '/admin/machines', '/admin/machines/new', '/admin/machines/machine', '/admin/companies', '/admin/companies/new', '/admin/companies/company', '/admin/alerts', '/admin/commands', '/admin/map', '/admin/telemetry', '/admin/users', '/admin/settings', '/admin/firmware', '/login']) {
         await page.goto(base + route);
         await page.waitForTimeout(350);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
@@ -67,6 +70,50 @@ const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/de
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'Create driver dialog overflow');
           await page.getByRole('button', { name: 'Fechar', exact: true }).click();
         }
+        if (route === '/admin/companies' && width === 360) {
+          await page.getByRole('link', { name: 'Abrir empresa' }).waitFor();
+          await page.getByRole('button', { name: 'Excluir', exact: true }).click();
+          await page.getByRole('dialog').waitFor();
+          assert.equal(await page.getByRole('button', { name: 'Excluir empresa' }).isDisabled(), true);
+          await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+          await page.screenshot({ path: path.join(output, 'companies-360.png'), fullPage: true });
+        }
+        if (route === '/admin/companies/company' && width === 360) {
+          await page.getByRole('button', { name: 'Salvar alterações' }).waitFor();
+          await page.getByRole('textbox', { name: 'Nome da empresa *' }).fill('Empresa atualizada');
+          await page.getByRole('button', { name: 'Salvar alterações' }).click();
+          await page.getByText('Dados da empresa atualizados.').waitFor();
+          await page.getByRole('button', { name: 'Excluir empresa' }).click();
+          await page.getByRole('dialog').waitFor();
+          await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+          await page.screenshot({ path: path.join(output, 'company-detail-360.png'), fullPage: true });
+        }
+        if (route === '/admin/firmware' && width === 360) {
+          await page.getByText('Instalar firmware nesta placa').waitFor();
+          await page.getByText('Arquivo disponível').waitFor();
+          await page.getByRole('link', { name: 'Ir para Dispositivos' }).waitFor();
+          assert.equal(await page.getByText('INTEGRAÇÃO PENDENTE').count(), 0);
+          await page.screenshot({ path: path.join(output, 'firmware-360.png'), fullPage: true });
+        }
+        if (route === '/admin/users' && width === 360) {
+          await page.getByRole('button', { name: 'Novo gerente' }).click();
+          await page.getByRole('dialog', { name: 'Novo gerente' }).waitFor();
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'Manager dialog overflow');
+          await page.getByRole('button', { name: 'Fechar' }).click();
+          await page.getByRole('button', { name: 'Editar conta' }).click();
+          await page.getByRole('dialog', { name: 'Editar usuário' }).waitFor();
+          await page.screenshot({ path: path.join(output, 'users-360.png'), fullPage: true });
+          await page.getByRole('button', { name: 'Fechar' }).click();
+        }
+        if (route === '/admin/settings' && width === 360) {
+          await page.getByText('Meu perfil').waitFor();
+          await page.screenshot({ path: path.join(output, 'settings-360.png'), fullPage: true });
+        }
+        if (route === '/admin/companies/new' && width === 360) {
+          await page.getByRole('textbox', { name: 'Nome da empresa *' }).fill('Empresa nova');
+          await page.getByRole('button', { name: 'Cadastrar empresa' }).click();
+          await page.waitForURL('**/admin/companies/company-created');
+        }
         if (route === '/admin/devices' && width === 360) {
           await page.locator('select[aria-label="Escavadeira"]').selectOption('machine');
           await page.getByRole('button', { name: 'Sim, está conectada' }).click();
@@ -98,7 +145,21 @@ const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/de
       }
       await page.close();
     }
+    const managerPage = await browser.newPage({ viewport: { width: 360, height: 900 } });
+    managerPage.on('pageerror', err => errors.push(`manager ${managerPage.url()}: ${err.message}`));
+    await managerPage.addInitScript(({ user }) => localStorage.setItem('empimecatronic_session', JSON.stringify({ user, accessToken: 'manager-fixture' })), { user: manager });
+    await managerPage.route('**/api/v1/**', route => {
+      const key = new URL(route.request().url()).pathname.replace('/api/v1', '');
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(key === '/auth/me' ? manager : fixtures[key] || []) });
+    });
+    await managerPage.goto(base + '/admin/machines');
+    await managerPage.getByText('Escavadeira de teste').waitFor();
+    assert.equal(await managerPage.getByRole('link', { name: 'Nova escavadeira' }).count(), 0);
+    assert.equal(await managerPage.getByRole('button', { name: 'Excluir', exact: true }).count(), 0);
+    await managerPage.goto(base + '/admin/commands');
+    await managerPage.waitForURL('**/admin');
+    await managerPage.close();
     assert.deepEqual(errors, []);
-    console.log('PASS 15 pages at 360, 768 and 1440px; RFID light/dark, map, telemetry, modal, delete action, USB button and status pills. Screenshots:', output);
+    console.log('PASS 18 pages at 360, 768 and 1440px; users, settings, company create/details/archive, firmware, RFID, map, telemetry, modals and responsive layout. Screenshots:', output);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

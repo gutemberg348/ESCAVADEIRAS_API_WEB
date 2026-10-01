@@ -21,3 +21,14 @@ export const deleteMachine = (id) =>
   request(`/machines/${id}`, { method: "DELETE" });
 export const alerts = () => request("/alerts");
 export const companies = () => request("/companies?limit=100");
+export async function fleetCompanies() {
+  const first = await request('/companies?limit=100&page=1');
+  const pages = Math.ceil((first.pagination?.total ?? first.data?.length ?? 0) / 100);
+  if (pages <= 1) return first.data || [];
+  const rest = await Promise.all(Array.from({ length: pages - 1 }, (_, index) => request(`/companies?limit=100&page=${index + 2}`)));
+  return [...(first.data || []), ...rest.flatMap((page) => page.data || [])];
+}
+export const company = (id) => request(`/companies/${encodeURIComponent(id)}`);
+export const createCompany = (data) => request('/companies', { method: 'POST', body: JSON.stringify(data) });
+export const updateCompany = (id, data) => request(`/companies/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteCompany = (id) => request(`/companies/${encodeURIComponent(id)}`, { method: 'DELETE' });

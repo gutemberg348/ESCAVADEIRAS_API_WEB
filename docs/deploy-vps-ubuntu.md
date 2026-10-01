@@ -109,6 +109,6 @@ O APK local atual aponta para `192.168.0.3` e não passará automaticamente a us
 
 ## Firmware
 
-Não é necessário enviar o firmware para a VPS nem colocá-lo em uma rota pública. Grave o firmware no ESP32 pela Arduino IDE. O arquivo `provisioned_config.h` contém uma credencial única e está ignorado pelo Git e pelo Docker.
+O código-fonte em `firmware/` não entra na imagem Docker. O painel publica apenas o binário-base genérico em `admin-web/public/firmware/` para permitir a gravação por USB no computador do administrador; ele não contém a credencial individual da placa. O arquivo `provisioned_config.h` contém uma credencial única e está ignorado pelo Git e pelo Docker.
 
 Se preferir não copiar a pasta `firmware` para a VPS, pode removê-la apenas da cópia destinada ao servidor. Mantenha a versão original no computador de desenvolvimento e em backup privado.

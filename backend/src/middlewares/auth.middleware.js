@@ -11,8 +11,8 @@ export const authenticate = async (req, _res, next) => {
     if (!payload.sub) throw new Error();
   } catch { return next(new AuthenticationError()); }
   try {
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, active: true, role: true, companyId: true } });
-    if (!user?.active) return next(new AuthenticationError());
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, active: true, role: true, companyId: true, sessionVersion: true, company: { select: { active: true, deletedAt: true } } } });
+    if (!user?.active || payload.sv !== user.sessionVersion || (user.role !== 'SUPER_ADMIN' && user.companyId && (!user.company?.active || user.company.deletedAt))) return next(new AuthenticationError());
     req.user = { ...payload, role: user.role, companyId: user.companyId };
     next();
   } catch (error) { next(error); }

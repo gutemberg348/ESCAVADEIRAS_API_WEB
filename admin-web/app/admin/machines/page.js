@@ -14,12 +14,14 @@ import {
 import { deleteMachine, fleetMachines } from "../../../services/machine.service";
 import StatusBadge from "../../../components/StatusBadge";
 import PageHeader from "../../../components/PageHeader";
+import { session } from "../../../services/api";
 import {
   EmptyState,
   ErrorState,
   LoadingState,
 } from "../../../components/States";
 export default function Machines() {
+  const [canManage, setCanManage] = useState(false);
   const [list, setList] = useState([]),
     [search, setSearch] = useState(""),
     [status, setStatus] = useState("ALL"),
@@ -38,6 +40,7 @@ export default function Machines() {
     }
   }, []);
   useEffect(() => {
+    setCanManage(['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(session()?.user?.role));
     load();
   }, [load]);
   async function remove(machine) {
@@ -76,7 +79,7 @@ export default function Machines() {
         eyebrow="GESTÃO DE ATIVOS"
         title="Escavadeiras"
         description="Inventário, conectividade e telemetria atual de todos os equipamentos permitidos."
-        action="Nova escavadeira"
+        action={canManage ? "Nova escavadeira" : undefined}
         icon={Plus}
       />
       {error ? (
@@ -219,7 +222,7 @@ export default function Machines() {
                             href={`/admin/machines/${machine.id}`}
                           >
                             Abrir <ChevronDown size={14} />
-                          </Link><button type="button" title={`Excluir ${machine.code}`} disabled={deletingId === machine.id} onClick={() => remove(machine)}><Trash2 size={14} /> Excluir</button></div>
+                          </Link>{canManage && <button type="button" title={`Excluir ${machine.code}`} disabled={deletingId === machine.id} onClick={() => remove(machine)}><Trash2 size={14} /> Excluir</button>}</div>
                         </td>
                       </tr>
                     ))}

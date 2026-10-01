@@ -36,6 +36,8 @@ export default function MachineDetail({ params }) {
     [error, setError] = useState(""),
     [live, setLive] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [canManage, setCanManage] = useState(false);
+  useEffect(() => setCanManage(['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(session()?.user?.role)), []);
   async function remove() {
     if (!window.confirm(`Excluir ${item.code} da frota? O histórico será preservado, mas o ESP32 vinculado perderá o acesso.`)) return;
     setDeleting(true);
@@ -345,10 +347,10 @@ export default function MachineDetail({ params }) {
           ))}
         </article>
       </section>
-        <section className="surface-panel machine-danger-zone">
+        {canManage && <section className="surface-panel machine-danger-zone">
           <div><h2>Excluir escavadeira</h2><p>A escavadeira sairá da frota. O ESP32 vinculado perderá acesso e o histórico permanecerá salvo.</p></div>
         <button className="danger-action" type="button" disabled={deleting} onClick={remove}><Trash2 size={16}/>{deleting ? "Excluindo..." : "Excluir escavadeira"}</button>
-      </section>
+      </section>}
     </div>
   );
 }

@@ -10,14 +10,16 @@ O modo padrão agora é BLE: ESP32 → celular Android → servidor, com fila of
 
 ## Instalação pelo painel (fluxo recomendado)
 
-No Chrome ou Edge do computador, abra **Admin → Dispositivos ESP32**:
+No Chrome ou Edge do computador, abra **Admin → Firmware**:
 
 1. conecte a placa pela USB e use **Conectar e gravar** para instalar o firmware-base;
-2. cadastre a escavadeira e vincule um novo dispositivo a ela;
-3. enquanto a credencial de uso único estiver na tela, use **Configurar pela USB**;
+2. em **Admin → Dispositivos ESP32**, escolha ou cadastre a escavadeira e vincule um dispositivo a ela;
+3. enquanto a credencial de uso único estiver na tela, use **Configurar pela USB** na mesma placa;
 4. aguarde a confirmação e desconecte a placa do computador;
 5. instale o módulo na escavadeira e alimente-o por uma fonte automotiva protegida de 12/24 V para 5 V — nunca ligue 12/24 V diretamente no ESP32;
 6. em operação, o ESP32 conversa por Bluetooth com o Android. O computador não acompanha a máquina.
+
+O painel serve apenas o binário-base genérico; o navegador grava a placa pela USB. A identidade de cada máquina é salva separadamente na memória do ESP32. Regravar pelo painel apaga a configuração anterior, então repita o provisionamento USB após qualquer nova gravação.
 
 O RC522 ligado ao ESP32 também pode ser usado para cadastrar cartões no painel. Em **Cartões RFID**, escolha o ESP32 conectado ao computador, feche o Monitor Serial da Arduino IDE, clique em **Conectar leitor** e aproxime o cartão. O UID é capturado automaticamente; a digitação manual é apenas contingência.
 

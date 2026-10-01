@@ -27,7 +27,7 @@ const secret = crypto.randomBytes(32).toString('base64url');
 const uid = crypto.randomBytes(7).toString('hex').toUpperCase();
 const otherUid = crypto.randomBytes(7).toString('hex').toUpperCase();
 const password = `Verify-${run}!`;
-const token = jwt.sign({ sub: adminId, role: 'SUPER_ADMIN', companyId }, process.env.JWT_SECRET, { expiresIn: '5m' });
+const token = jwt.sign({ sub: adminId, role: 'SUPER_ADMIN', companyId, sv: 0 }, process.env.JWT_SECRET, { expiresIn: '5m' });
 const sockets = [];
 let client;
 let serial = 0;
@@ -134,7 +134,7 @@ try {
   console.log('PASS unknown/foreign/disabled cards and device reboot');
 
   await request('/rfid', { accessToken: login.accessToken, status: 403 });
-  const scopedToken = jwt.sign({ sub: foreign.id, role: 'COMPANY_ADMIN', companyId: otherCompanyId }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const scopedToken = jwt.sign({ sub: foreign.id, role: 'COMPANY_ADMIN', companyId: otherCompanyId, sv: 0 }, process.env.JWT_SECRET, { expiresIn: '5m' });
   await request('/rfid/captures', { method: 'POST', accessToken: scopedToken, status: 403, body: { machineId } });
   await request('/drivers', { method: 'POST', accessToken: scopedToken, status: 403, body: { companyId, name: 'Invalid scope', email: `invalid-${run}@example.invalid`, password } });
   await request('/rfid', { method: 'POST', status: 400, body: { driverProfileId: second.driverProfile.id, code: '12345' } });

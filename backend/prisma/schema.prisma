@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   COMPANY_ADMIN
+  MANAGER
   DRIVER
 }
 
@@ -41,6 +42,8 @@ model Company {
   name      String
   document  String?   @unique
   active    Boolean   @default(true)
+  logoData  String?   @db.Text
+  accentColor String? @db.VarChar(7)
   users     User[]
   machines  Machine[]
   createdAt DateTime  @default(now())
@@ -57,6 +60,8 @@ model User {
   passwordHash  String
   role          Role
   active        Boolean        @default(true)
+  avatarData    String?        @db.Text
+  sessionVersion Int           @default(0)
   driverProfile DriverProfile?
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]

@@ -20,7 +20,7 @@ let socket;
 let token;
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}/api/v1`;
-const sign = user => jwt.sign({ sub: user.id, role: user.role, companyId: user.companyId }, process.env.JWT_SECRET, { expiresIn: '5m' });
+const sign = user => jwt.sign({ sub: user.id, role: user.role, companyId: user.companyId, sv: user.sessionVersion ?? 0 }, process.env.JWT_SECRET, { expiresIn: '5m' });
 async function request(path, method = 'GET', body, expected = 200, accessToken = token) {
   const response = await fetch(`${base}${path}`, { method, headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
   const data = response.status === 204 ? null : await response.json();

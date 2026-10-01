@@ -207,3 +207,108 @@
   .guided-machine-row a, .guided-form button { width: 100%; }
   .guided-choices button { flex: 1 1 130px; }
 }
+
+/* ESP32 bench page: the actual Web Serial installer is the primary action. */
+.firmware-hero { display: flex; align-items: center; flex-wrap: wrap; gap: 17px; padding: clamp(20px, 3vw, 30px); margin-bottom: 14px; background: radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 43%), var(--surface); }
+.firmware-hero-icon { display: grid; place-items: center; width: 60px; height: 60px; flex: 0 0 60px; border-radius: 17px; background: var(--accent); color: var(--accent-text); }
+.firmware-hero > div { flex: 1 1 280px; }
+.firmware-hero h2 { margin: 5px 0; font-size: clamp(19px, 2.1vw, 27px); line-height: 1.2; }
+.firmware-hero p { margin: 0; color: var(--muted); max-width: 660px; }
+.firmware-file-status { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 20px; color: var(--muted); background: var(--surface-2); font-size: 11px; font-weight: 800; }
+.firmware-file-status.ready { color: var(--success); background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
+.firmware-file-status.missing, .firmware-file-status.error { color: var(--danger); background: var(--danger-soft); }
+.firmware-step-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.firmware-step-grid article { min-width: 0; min-height: 196px; padding: 20px; }
+.firmware-step-icon { display: grid; place-items: center; width: 39px; height: 39px; margin-bottom: 14px; border-radius: 11px; background: var(--surface-3); color: var(--accent); }
+.firmware-step-grid small { color: var(--accent); font-weight: 800; letter-spacing: .1em; }
+.firmware-step-grid h3 { margin: 5px 0; font-size: 17px; }
+.firmware-step-grid p { margin: 0; color: var(--muted); }
+.firmware-alert { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 13px 16px; color: var(--danger); background: var(--danger-soft); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: 11px; font-size: 12px; }
+.firmware-flash-panel { margin-bottom: 14px; }
+.firmware-flash-panel > p { color: var(--muted); margin: 0 0 17px; }
+.firmware-flash-panel .firmware-installer { margin: 0 0 12px; }
+.firmware-flash-panel .firmware-installer p { font-size: 12px; }
+.firmware-flash-panel .firmware-installer small { font-size: 10px; }
+.firmware-download { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: var(--operations-link); text-decoration: none; font-size: 12px; font-weight: 800; }
+.firmware-flash-unavailable { padding: 20px; border: 1px dashed var(--border); border-radius: 11px; }
+.firmware-next { display: flex; align-items: center; flex-wrap: wrap; gap: 15px; padding: 18px 21px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.firmware-next > span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; background: var(--surface-2); color: var(--accent); }
+.firmware-next > div { flex: 1 1 250px; }
+.firmware-next h2 { margin: 0 0 4px; font-size: 17px; }
+.firmware-next p { margin: 0; color: var(--muted); }
+.firmware-next a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 0 14px; border-radius: 10px; background: var(--accent); color: var(--accent-text); text-decoration: none; font-weight: 800; font-size: 12px; }
+.firmware-next.done { border-color: var(--success); }
+.firmware-safety-note { color: var(--muted); margin: 13px 2px 0; }
+
+/* Company inventory, details, edit and explicit archive confirmation. */
+.company-search { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 0 13px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--muted); }
+.company-search input { flex: 1; min-width: 0; border: 0; outline: 0; color: var(--text); background: transparent; }
+.companies-page .company-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.companies-page .company-card { display: flex; flex-direction: column; min-width: 0; padding: 20px; }
+.companies-page .company-card h2 { font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
+.companies-page .company-document { font-size: 12px; color: var(--muted); }
+.companies-page .company-stats { margin-top: auto; padding: 17px 0; }
+.companies-page .company-stats > div { font-size: 12px; }
+.company-actions { display: flex; gap: 8px; margin-top: 15px; }
+.company-actions a, .company-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 11px; border: 1px solid var(--border); border-radius: 9px; text-decoration: none; font-size: 12px; font-weight: 800; cursor: pointer; }
+.company-actions a { flex: 1; color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.company-actions button { color: var(--danger); background: var(--danger-soft); }
+.company-detail-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.company-detail-summary > div { display: grid; gap: 3px; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+.company-detail-summary svg { color: var(--accent); margin-bottom: 7px; }
+.company-detail-summary span { color: var(--muted); font-size: 12px; }
+.company-detail-summary strong { font-size: 23px; line-height: 1.2; }
+.company-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.company-resource-panel { min-width: 0; }
+.company-resource-list, .company-user-list { display: grid; gap: 0; }
+.company-resource-list > a, .company-user-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px 0; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.company-resource-list span, .company-user-list span { display: grid; min-width: 0; gap: 3px; }
+.company-resource-list strong, .company-user-list strong { font-size: 13px; overflow-wrap: anywhere; }
+.company-resource-list small, .company-user-list small { color: var(--muted); overflow-wrap: anywhere; }
+.company-user-list em { flex: 0 0 auto; color: var(--muted); font-size: 11px; font-style: normal; }
+.company-empty { color: var(--muted); }
+.company-resource-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; color: var(--operations-link); font-size: 12px; font-weight: 800; text-decoration: none; }
+.company-edit-panel { max-width: 760px; margin-bottom: 14px; }
+.company-edit-panel form, .company-edit-panel { min-width: 0; }
+.company-edit-panel label { display: grid; gap: 7px; margin-bottom: 13px; }
+.company-edit-panel label span { color: var(--muted); font-size: 11px; font-weight: 800; }
+.company-edit-panel input { width: 100%; min-height: 47px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface-2); }
+.company-edit-panel form > button, .company-form-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 45px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-text); font-weight: 800; cursor: pointer; }
+.company-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 13px; }
+.company-form-actions a { color: var(--muted); text-decoration: none; font-weight: 700; }
+.company-form-error, .company-archive-error { padding: 11px 13px; border-radius: 9px; color: var(--danger); background: var(--danger-soft); }
+.company-form-success { padding: 11px 13px; border-radius: 9px; color: var(--success); background: var(--success-soft); }
+.company-danger-zone { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.company-danger-zone h2 { margin: 0 0 5px; font-size: 17px; }
+.company-danger-zone p { margin: 0; color: var(--muted); }
+.company-danger-zone button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 43px; padding: 0 13px; border: 1px solid var(--danger); border-radius: 9px; color: var(--danger); background: var(--danger-soft); font-weight: 800; cursor: pointer; }
+.company-permission { color: var(--muted); }
+.company-archive-backdrop { z-index: 150; }
+.company-archive-dialog { position: relative; width: min(530px, 100%); padding: 26px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.company-dialog-close { position: absolute; right: 16px; top: 16px; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); background: var(--surface-2); }
+.company-archive-icon { display: grid; place-items: center; width: 47px; height: 47px; border-radius: 12px; color: var(--danger); background: var(--danger-soft); }
+.company-archive-dialog h2 { font-size: 22px; margin: 17px 0 8px; }
+.company-archive-dialog p { color: var(--muted); line-height: 1.55; }
+.company-archive-impact { display: flex; gap: 9px; flex-wrap: wrap; margin: 14px 0; }
+.company-archive-impact span { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: var(--surface-2); font-size: 12px; }
+.company-archive-dialog label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.company-archive-dialog label strong { color: var(--text); }
+.company-archive-dialog input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: var(--surface-2); }
+.company-archive-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
+.company-archive-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 43px; padding: 0 14px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: var(--surface-2); font-weight: 800; cursor: pointer; }
+.company-archive-actions button.danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.company-archive-actions button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 850px) {
+  .firmware-step-grid { grid-template-columns: 1fr; }
+  .firmware-step-grid article { min-height: 0; }
+  .company-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 650px) {
+  .firmware-hero { align-items: flex-start; }
+  .firmware-next a { width: 100%; }
+  .company-detail-summary { grid-template-columns: 1fr 1fr; }
+  .company-archive-backdrop { align-items: center; padding: 14px; }
+  .company-archive-dialog { min-height: 0; max-height: calc(100dvh - 28px); overflow-y: auto; padding: 21px; }
+  .company-archive-actions { flex-direction: column-reverse; }
+  .company-archive-actions button, .company-form-actions button { width: 100%; }
+}

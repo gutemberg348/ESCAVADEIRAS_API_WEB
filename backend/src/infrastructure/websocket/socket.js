@@ -12,8 +12,8 @@ export const createSocketServer = (server) => {
     try {
       const token = socket.handshake.auth?.token;
       const payload = jwt.verify(token, env.JWT_SECRET);
-      socket.user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, role: true, companyId: true, active: true } });
-      if (!socket.user?.active) throw new Error('User not found');
+      socket.user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, role: true, companyId: true, active: true, sessionVersion: true, company: { select: { active: true, deletedAt: true } } } });
+      if (!socket.user?.active || payload.sv !== socket.user.sessionVersion || (socket.user.role !== 'SUPER_ADMIN' && socket.user.companyId && (!socket.user.company?.active || socket.user.company.deletedAt))) throw new Error('User not found');
       next();
     } catch { next(new Error('Unauthorized')); }
   });
