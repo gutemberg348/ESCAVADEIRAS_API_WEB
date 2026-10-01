@@ -32,6 +32,12 @@ export const createSocketServer = (server) => {
   return io;
 };
 export const emitMachine = (machineId, event, payload) => io?.to(`machine:${machineId}`).emit(event, payload);
+export function disconnectUser(userId) {
+  if (!io) return;
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.user.id === userId) socket.disconnect(true);
+  }
+}
 
 export async function notifyAssignmentChange(companyId) {
   if (!io) return;

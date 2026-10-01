@@ -356,7 +356,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
         <JourneyStep number="3" label="Iniciar" done={active} theme={theme} last />
       </View>
 
-      {!active && !connected ? (
+      {!connected ? (
         <ActionButton
           label={scanning ? 'Procurando máquinas...' : 'Procurar escavadeira'}
           icon={scanning ? Signal : Bluetooth}
@@ -398,7 +398,7 @@ export default function BluetoothGateway({ session, machine, theme }) {
         </Pressable>
       ))}
 
-      {!active && scanning && devices.length === 0 ? (
+      {scanning && devices.length === 0 ? (
         <Text style={{ color: theme.textMuted, fontSize: 10, textAlign: 'center', marginTop: 11 }}>
           A busca dura até 12 segundos. Aproxime-se da escavadeira.
         </Text>

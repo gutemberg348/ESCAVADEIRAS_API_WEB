@@ -69,6 +69,7 @@ model DriverProfile {
   userId      String                    @unique
   user        User                      @relation(fields: [userId], references: [id])
   phone       String?
+  deletedAt   DateTime?
   rfidCards   RfidCard[]
   assignments DriverMachineAssignment[]
 }

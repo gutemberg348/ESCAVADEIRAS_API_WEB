@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertTriangle,
   Bell,
@@ -233,12 +234,13 @@ const navigation = [
 ];
 
 export function BottomNav({ active, onChange, theme, alertsCount }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.bottomNav, { backgroundColor: theme.nav, borderTopColor: theme.border }]}> 
+    <View style={[styles.bottomNav, { backgroundColor: theme.nav, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 8), paddingLeft: insets.left, paddingRight: insets.right }]}>
       {navigation.map(({ key, label, icon: Icon }) => {
         const selected = active === key;
         return (
-          <Pressable key={key} onPress={() => onChange(key)} style={styles.navItem}>
+          <Pressable key={key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => onChange(key)} style={styles.navItem}>
             <View style={[styles.navIconWrap, selected && { backgroundColor: theme.surfaceSoft }]}>
               <Icon size={19} color={selected ? theme.accent : theme.textMuted} strokeWidth={selected ? 2.4 : 1.9} />
               {key === 'alerts' && alertsCount > 0 ? <View style={[styles.navDot, { backgroundColor: theme.warning }]} /> : null}
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
   emptyDescription: { fontSize: 13, lineHeight: 19, textAlign: 'center', maxWidth: 270, marginTop: 7 },
   emptyAction: { minHeight: 44, marginTop: 16, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 10, justifyContent: 'center' },
   emptyActionText: { fontSize: 12, fontWeight: '900' },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 7, paddingBottom: 7 },
+  bottomNav: { flexShrink: 0, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 7 },
   navItem: { flex: 1, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
   navIconWrap: { width: 39, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   navText: { fontSize: 9.5, fontWeight: '700', marginTop: 3 },

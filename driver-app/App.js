@@ -273,6 +273,7 @@ function EmpimecatronicApp() {
     <SafeAreaView style={styles.app} edges={['top']}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
         refreshControl={(
@@ -493,7 +494,7 @@ function HomeScreen({ firstName, profile, machine, alerts, connection, theme, st
         <EmptyState
           icon={HardHat}
           title="Nenhuma máquina vinculada"
-          description="Seu acesso está ativo, mas ainda não existe uma escavadeira associada à sua operação. Solicite o vínculo ao administrador da empresa."
+          description="Conecte à escavadeira pelo Bluetooth acima e aproxime seu cartão no leitor da máquina. Com internet, o servidor identifica você e atualiza a operação."
           theme={theme}
           action="Verificar novamente"
           onAction={onRefresh}
@@ -769,7 +770,7 @@ const staticStyles = StyleSheet.create({
 function createStyles(theme) {
   return StyleSheet.create({
     app: { flex: 1, backgroundColor: theme.background },
-    content: { paddingHorizontal: 18, paddingTop: 9, paddingBottom: 110, width: '100%', maxWidth: 700, alignSelf: 'center' },
+    content: { paddingHorizontal: 18, paddingTop: 9, paddingBottom: 24, width: '100%', maxWidth: 700, alignSelf: 'center' },
     login: { flex: 1, backgroundColor: theme.background },
     loginKeyboard: { flex: 1 },
     loginScroll: { flexGrow: 1, paddingHorizontal: 22, paddingBottom: 26, justifyContent: 'space-between', width: '100%', maxWidth: 520, alignSelf: 'center' },

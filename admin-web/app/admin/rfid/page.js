@@ -112,20 +112,22 @@ export default function RfidPage() {
           </div>
           {cards.map((card) => (
             <div className="rfid-row" key={card.id}>
-              <span>
+              <span className="rfid-icon">
                 <Radio size={17} />
               </span>
-              <div>
+              <div className="rfid-identity">
                 <b>{card.code}</b>
                 <small>
                   {card.driverProfile.user.name} ·{" "}
                   {card.driverProfile.user.email}
                 </small>
               </div>
-              <StatusBadge status={card.active ? "ONLINE" : "DISABLED"} />
+              <StatusBadge status={card.active ? "ACTIVE" : "INACTIVE"} />
               <button
                 type="button"
-                disabled={saving}
+                className="rfid-toggle secondary-action"
+                disabled={saving || !!card.driverProfile.deletedAt}
+                title={card.driverProfile.deletedAt ? 'Motorista excluído. Leia o cartão para vinculá-lo a outro operador.' : undefined}
                 onClick={async () => {
                   setSaving(true);
                   try {

@@ -13,3 +13,7 @@ driverRouter.get('/', allowRoles('SUPER_ADMIN', 'COMPANY_ADMIN'), driverControll
 driverRouter.post('/', allowRoles('SUPER_ADMIN', 'COMPANY_ADMIN'), validate(createDriverSchema), async (req, res) => res.status(201).json(await driverService.create(req.user, req.body)));
 driverRouter.post('/:profileId/assignments', allowRoles('SUPER_ADMIN', 'COMPANY_ADMIN'), validate(assignmentSchema), driverController.assign);
 driverRouter.delete('/assignments/:assignmentId', allowRoles('SUPER_ADMIN', 'COMPANY_ADMIN'), driverController.endAssignment);
+driverRouter.delete('/:profileId', allowRoles('SUPER_ADMIN', 'COMPANY_ADMIN'), async (req, res) => {
+  await driverService.remove(req.user, req.params.profileId);
+  res.sendStatus(204);
+});

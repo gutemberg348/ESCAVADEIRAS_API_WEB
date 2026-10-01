@@ -24,7 +24,11 @@ export default function NewMachinePage() {
   const [companyList, setCompanyList] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const isSuperAdmin = session()?.user?.role === "SUPER_ADMIN";
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    setIsSuperAdmin(session()?.user?.role === "SUPER_ADMIN");
+  }, []);
 
   useEffect(() => {
     if (isSuperAdmin)

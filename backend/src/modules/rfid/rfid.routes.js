@@ -69,7 +69,7 @@ rfidRouter.post(
       where: { id: req.body.driverProfileId },
       include: { user: true },
     });
-    if (!profile) throw new NotFoundError("Operador não encontrado");
+    if (!profile || profile.deletedAt || !profile.user.active) throw new NotFoundError("Operador ativo não encontrado");
     if (
       req.user.role !== "SUPER_ADMIN" &&
       profile.user.companyId !== req.user.companyId
@@ -82,6 +82,14 @@ rfidRouter.post(
     if (existing) {
       if (!canAccess(req.user, existing))
         throw new ConflictError("Este cartão já está cadastrado no sistema.");
+      if (existing.driverProfile.deletedAt) {
+        const card = await prisma.$transaction(async tx => {
+          const updated = await tx.rfidCard.update({ where: { id: existing.id }, data: { driverProfileId: profile.id, active: true }, include });
+          await tx.auditLog.create({ data: { userId: req.user.sub, action: 'RFID_REASSIGNED', resource: 'RfidCard', resourceId: existing.id, metadata: { previousDriverProfileId: existing.driverProfileId, driverProfileId: profile.id } } });
+          return updated;
+        });
+        return res.json(card);
+      }
       if (existing.driverProfileId !== profile.id)
         throw new ConflictError(
           `Este cartão já pertence ao operador ${existing.driverProfile.user.name}.`,

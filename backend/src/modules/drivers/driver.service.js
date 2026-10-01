@@ -2,12 +2,31 @@ import { prisma } from '../../infrastructure/database/prisma.js';
 import { AuthorizationError, NotFoundError } from '../../utils/errors.js';
 import { machineService } from '../machines/machine.service.js';
 import bcrypt from 'bcrypt';
-import { notifyAssignmentChange } from '../../infrastructure/websocket/socket.js';
+import { disconnectUser, notifyAssignmentChange } from '../../infrastructure/websocket/socket.js';
 import { setAssignment } from './assignment.service.js';
 
-const companyScope = (user) => user.role === 'SUPER_ADMIN' ? {} : { user: { companyId: user.companyId } };
+const companyScope = (user) => ({ deletedAt: null, ...(user.role === 'SUPER_ADMIN' ? {} : { user: { companyId: user.companyId } }) });
 
 export const driverService = {
+  async remove(actor, profileId) {
+    const profile = await prisma.driverProfile.findUnique({ where: { id: profileId }, include: { user: true } });
+    if (!profile) throw new NotFoundError('Operador não encontrado');
+    if (actor.role !== 'SUPER_ADMIN' && profile.user.companyId !== actor.companyId) throw new AuthorizationError();
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${profile.user.companyId}))`;
+      const now = new Date();
+      const assignments = await tx.driverMachineAssignment.findMany({ where: { driverProfileId: profileId, endedAt: null }, select: { machineId: true } });
+      await tx.driverMachineAssignment.updateMany({ where: { driverProfileId: profileId, endedAt: null }, data: { endedAt: now } });
+      await tx.machineCurrentState.updateMany({ where: { machineId: { in: assignments.map(item => item.machineId) } }, data: { rfidCode: null, rfidStatus: 'AWAITING_CARD' } });
+      await tx.rfidCard.updateMany({ where: { driverProfileId: profileId }, data: { active: false } });
+      await tx.refreshToken.updateMany({ where: { userId: profile.userId, revokedAt: null }, data: { revokedAt: now } });
+      await tx.user.update({ where: { id: profile.userId }, data: { active: false } });
+      const archived = await tx.driverProfile.updateMany({ where: { id: profileId, deletedAt: null }, data: { deletedAt: now } });
+      if (archived.count) await tx.auditLog.create({ data: { userId: actor.sub, action: 'DRIVER_DELETED', resource: 'DriverProfile', resourceId: profileId, metadata: { userId: profile.userId, name: profile.user.name } } });
+    });
+    disconnectUser(profile.userId);
+    await notifyAssignmentChange(profile.user.companyId);
+  },
   async create(actor, data) {
     if (actor.role !== 'SUPER_ADMIN' && data.companyId !== actor.companyId) throw new AuthorizationError();
     const company = await prisma.company.findFirst({ where: { id: data.companyId, active: true, deletedAt: null } });

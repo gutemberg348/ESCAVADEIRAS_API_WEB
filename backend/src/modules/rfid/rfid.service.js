@@ -18,6 +18,7 @@ export const rfidService = {
     const card = await prisma.rfidCard.findUnique({ where: { id }, include: { driverProfile: { include: { user: true } } } });
     if (!card) throw new NotFoundError('Cartão não encontrado');
     if (user.role !== 'SUPER_ADMIN' && card.driverProfile.user.companyId !== user.companyId) throw new AuthorizationError();
+    if (active && (card.driverProfile.deletedAt || !card.driverProfile.user.active)) throw new AuthorizationError('Vincule este cartão a um operador ativo antes de reativá-lo');
     const updated = await prisma.rfidCard.update({ where: { id }, data: { active }, include: { driverProfile: { include: { user: { select: { name: true, email: true, companyId: true } } } } } });
     if (!active) {
       const machines = await prisma.machine.findMany({ where: { currentState: { rfidCode: card.code }, companyId: card.driverProfile.user.companyId } });

@@ -9,6 +9,7 @@ import {
   Plus,
   Radio,
   Truck,
+  Trash2,
   Unlink,
   UsersRound,
 } from "lucide-react";
@@ -114,6 +115,19 @@ export default function DriversPage() {
       setSaving("");
     }
   }
+  async function remove(driver) {
+    if (!window.confirm(`Excluir ${driver.user.name}? O acesso será bloqueado, os cartões desativados e a operação atual encerrada. O histórico será preservado.`)) return;
+    setSaving(driver.id);
+    setError("");
+    try {
+      await request(`/drivers/${driver.id}`, { method: "DELETE" });
+      await load(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving("");
+    }
+  }
   if (loading)
     return (
       <div className="admin-page">
@@ -170,7 +184,7 @@ export default function DriversPage() {
                     <ContactRound size={22} />
                   </span>
                   <StatusBadge
-                    status={driver.user.active ? "ONLINE" : "DISABLED"}
+                    status={driver.user.active ? "ACTIVE" : "INACTIVE"}
                   />
                 </div>
                 <div className="driver-identity">
@@ -219,7 +233,7 @@ export default function DriversPage() {
                       }
                     >
                       <option value="">Selecione uma escavadeira</option>
-                      {machines.map((machine) => (
+                      {machines.filter((machine) => machine.companyId === driver.user.companyId).map((machine) => (
                         <option key={machine.id} value={machine.id}>
                           {machine.code} · {machine.name}
                         </option>
@@ -253,6 +267,10 @@ export default function DriversPage() {
                       Encerrar operação
                     </button>
                   )}
+                  <button type="button" className="driver-delete" disabled={saving === driver.id} onClick={() => remove(driver)}>
+                    <Trash2 size={16} />
+                    Excluir motorista
+                  </button>
                 </div>
               </article>
             );

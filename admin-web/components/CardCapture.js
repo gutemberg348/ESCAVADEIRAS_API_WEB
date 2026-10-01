@@ -185,8 +185,8 @@ export default function CardCapture({ value, onChange, required = false }) {
           disabled={!!capture || serialState !== "idle"}
           onChange={(event) => setSource(event.target.value)}
         >
-          <option value="usb">ESP32 conectado neste computador</option>
-          <option value="machine">Leitor instalado em uma escavadeira</option>
+          <option value="usb">USB deste computador</option>
+          <option value="machine">Leitor da escavadeira</option>
         </select>
       </label>
       {source === "usb" ? (
