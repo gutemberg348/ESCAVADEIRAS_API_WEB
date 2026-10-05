@@ -22,6 +22,25 @@ O APK local aponta para `http://192.168.0.3:3000/api/v1` e admite HTTP apenas pa
 
 ## Comportamento offline e limites
 
+### RFID sem precisar apertar EN (firmware 3.0.1-ble)
+
+O `HELLO` enviado pelo app ao conectar rearma o RC522 no loop principal, sem reiniciar o ESP32 ou apagar a fila BLE. O app prepara a recepção antes de enviar esse comando. O leitor verifica periodicamente a comunicação SPI, a antena e a configuração; se detectar falha, reinicializa somente o RC522 e tenta novamente a cada dois segundos enquanto estiver indisponível.
+
+A leitura usa WUPA para reconhecer também um cartão que ficou em HALT após a leitura anterior. Manter o cartão encostado gera uma única apresentação; retirar por pelo menos 400 ms e aproximar novamente gera outra. Uma nova conexão pelo app também permite ler o cartão que permaneceu encostado. A autorização continua dependendo da resposta do servidor.
+
+Teste em bancada após atualizar o firmware e o app:
+
+1. Ligue o conjunto sem apertar EN, conecte pelo app e apresente o cartão cadastrado. Confira o bip e a identificação no app.
+2. Mantenha o cartão no leitor por dez segundos: deve haver somente uma apresentação, sem bips contínuos.
+3. Desconecte e reconecte pelo app com o cartão ainda encostado. Confira uma nova leitura e validação, sem EN.
+4. Retire por um segundo e reapresente o mesmo cartão; repita também com outro cartão.
+5. Deixe a placa ligada sem celular por alguns minutos e repita a conexão/leitura.
+6. Se houver falha, confira no serial os registros `[RFID] Leitor pronto`, `[RFID] UID lido` ou `[RFID] Falha no leitor`. Ausência de UID indica problema na leitura; UID com validação pendente exige conferir BLE e acesso ao servidor.
+
+O binário-base do painel precisa acompanhar esta versão. Gravar pelo painel apaga o provisionamento: configure novamente a identidade pela USB depois da gravação. Os testes simulados de recuperação estão em `firmware/tests`.
+
+### Coleta e sincronização
+
 - O app precisa ficar aberto/em primeiro plano durante a coleta. Este incremento não implementa serviço Android de coleta em segundo plano. Bloquear a tela, fechar o app ou o Android suspendê-lo pode interromper o BLE.
 - Telemetria BLE a cada cinco segundos. O telefone grava em SQLite antes de confirmar o pacote ao ESP32.
 - Fila persistente por usuário e URL de servidor. Limite de 100.000 registros; quando cheio, a coleta alerta e para de confirmar em vez de apagar histórico silenciosamente.

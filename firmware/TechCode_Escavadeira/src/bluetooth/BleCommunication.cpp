@@ -40,10 +40,24 @@ void AppCommunication::onConnect(BLEServer*) { connected_ = true; }
 void AppCommunication::onDisconnect(BLEServer*) { connected_ = false; advertise_ = true; }
 void AppCommunication::onWrite(BLECharacteristic* characteristic) {
   const String value = characteristic->getValue();
+  if (value == "HELLO") {
+    portENTER_CRITICAL(&mux_);
+    rearmRfid_ = true;
+    portEXIT_CRITICAL(&mux_);
+    return;
+  }
   if (!value.startsWith("ACK:") || value.length() > 94) return;
   portENTER_CRITICAL(&mux_);
   strlcpy(ack_, value.c_str() + 4, sizeof(ack_));
   portEXIT_CRITICAL(&mux_);
+}
+
+bool AppCommunication::takeRfidRearmRequest() {
+  portENTER_CRITICAL(&mux_);
+  const bool requested = rearmRfid_;
+  rearmRfid_ = false;
+  portEXIT_CRITICAL(&mux_);
+  return requested;
 }
 
 bool AppCommunication::enqueue(const char* kind, JsonDocument& data) {

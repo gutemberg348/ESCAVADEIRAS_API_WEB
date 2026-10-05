@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';
-import { AuthenticationError, ConflictError } from '../../utils/errors.js';
+import { AuthenticationError } from '../../utils/errors.js';
 import { authRepository } from './auth.repository.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { disconnectUser } from '../../infrastructure/websocket/socket.js';
@@ -26,10 +26,9 @@ export const authService = {
     });
     return authService.me(id);
   },
-  async changePassword(id, { currentPassword, newPassword }) {
+  async changePassword(id, { newPassword }) {
     const user = await authRepository.findUserById(id);
-    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) throw new AuthenticationError('Senha atual incorreta.');
-    if (await bcrypt.compare(newPassword, user.passwordHash)) throw new ConflictError('A nova senha deve ser diferente da atual.');
+    if (!user?.active) throw new AuthenticationError();
     await prisma.$transaction(async tx => {
       await tx.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(newPassword, 12), sessionVersion: { increment: 1 } } });
       await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });

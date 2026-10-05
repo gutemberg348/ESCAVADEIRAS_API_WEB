@@ -145,6 +145,28 @@ const fixtures = { '/auth/me': user, '/drivers': [driver], '/rfid': [card], '/de
       }
       await page.close();
     }
+    const devicePage = await browser.newPage({ viewport: { width: 360, height: 900 } });
+    devicePage.on('pageerror', err => errors.push(`device code ${devicePage.url()}: ${err.message}`));
+    await devicePage.addInitScript(({ user }) => localStorage.setItem('empimecatronic_session', JSON.stringify({ user, accessToken: 'layout-fixture' })), { user });
+    let postedDeviceCode = '';
+    await devicePage.route('**/api/v1/**', route => {
+      const key = new URL(route.request().url()).pathname.replace('/api/v1', '');
+      if (key === '/devices' && route.request().method() === 'POST') {
+        postedDeviceCode = route.request().postDataJSON().deviceCode;
+        return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ device: { id: 'new-device' }, provisioning: { device: { code: postedDeviceCode, token: 'test-token' } } }) });
+      }
+      if (key === '/machines') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: [{ ...machine, code: 'TESTE 777777' }], pagination: { total: 1 } }) });
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(fixtures[key] || []) });
+    });
+    await devicePage.goto(base + '/admin/devices?machine=machine');
+    await devicePage.getByRole('button', { name: 'Sim, está conectada' }).click();
+    await devicePage.getByRole('button', { name: 'Sim, já está instalado' }).click();
+    assert.match(await devicePage.getByPlaceholder('ESP-ESC-001').inputValue(), /^ESP-TESTE-777777-[A-Z0-9]{4}$/);
+    await devicePage.getByRole('button', { name: 'Cadastrar e continuar' }).click();
+    await devicePage.getByText('Identidade criada. Agora grave-a no ESP32 pela USB para concluir.').waitFor();
+    assert.match(postedDeviceCode, /^ESP-TESTE-777777-[A-Z0-9]{4}$/);
+    await devicePage.close();
+
     const managerPage = await browser.newPage({ viewport: { width: 360, height: 900 } });
     managerPage.on('pageerror', err => errors.push(`manager ${managerPage.url()}: ${err.message}`));
     await managerPage.addInitScript(({ user }) => localStorage.setItem('empimecatronic_session', JSON.stringify({ user, accessToken: 'manager-fixture' })), { user: manager });

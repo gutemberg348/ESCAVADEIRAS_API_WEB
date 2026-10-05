@@ -17,6 +17,7 @@ class AppCommunication : public BLEServerCallbacks, public BLECharacteristicCall
   void update(TelemetryState& state);
   void publishTelemetry(const TelemetryState& state, bool importantEvent = false);
   bool queueRfid(const String& uid);
+  bool takeRfidRearmRequest();
   bool hasCommand() const { return false; }
   AppCommand takeCommand() { return {}; }
   void acknowledgeExecuted(const String&, const char*) {}
@@ -33,6 +34,7 @@ class AppCommunication : public BLEServerCallbacks, public BLECharacteristicCall
   volatile bool advertise_ = false;
   portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
   char ack_[96]{};
+  bool rearmRfid_ = false;
   Packet queue_[16];
   uint8_t head_ = 0, count_ = 0;
   String bootId_;

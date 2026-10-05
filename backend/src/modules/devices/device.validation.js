@@ -12,7 +12,12 @@ const hardwareConfigSchema = z.object({
 
 export const createDeviceSchema = z.object({
   machineId: z.string().uuid(),
-  deviceCode: z.string().trim().min(4).max(50).toUpperCase().regex(/^[A-Z0-9_-]+$/),
+  deviceCode: z.string().trim()
+    .transform((value) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, '-'))
+    .pipe(z.string()
+      .min(4, 'O código da placa precisa ter pelo menos 4 caracteres.')
+      .max(50, 'O código da placa pode ter no máximo 50 caracteres.')
+      .regex(/^[A-Z0-9_-]+$/, 'O código da placa aceita letras, números, hífen e _.')),
   hardwareSerial: z.string().trim().min(4).max(100).optional(),
   mqttClientId: z.string().trim().min(4).max(100).optional(),
   hardwareConfig: hardwareConfigSchema.optional()

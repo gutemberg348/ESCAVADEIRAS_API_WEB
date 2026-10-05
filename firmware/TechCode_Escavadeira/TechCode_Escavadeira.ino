@@ -47,6 +47,7 @@ void loop() {
   gps.update(telemetry);
   electrical.update(telemetry);
   relay.update(telemetry);
+  if (appCommunication.takeRfidRearmRequest()) rfid.rearm();
   const bool rfidEvent = rfid.update(telemetry);
   buzzer.update(telemetry);
   appCommunication.update(telemetry);

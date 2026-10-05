@@ -8,6 +8,7 @@ import StatusBadge from "../../../components/StatusBadge";
 import { ErrorState, LoadingState } from "../../../components/States";
 import { request } from "../../../services/api";
 import { fleetMachines } from "../../../services/machine.service";
+import { normalizeDeviceCode, suggestedDeviceCode } from "../../../services/device-code";
 import UsbProvisioner from "../../../components/UsbProvisioner";
 import FirmwareInstaller from "../../../components/FirmwareInstaller";
 
@@ -25,6 +26,7 @@ export default function DevicesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
@@ -38,7 +40,7 @@ export default function DevicesPage() {
         setMachineId((current) => current || requested);
         const selected = fleet.find((machine) => machine.id === requested);
         if (!(items || []).some((item) => item.machineId === requested)) {
-          setDeviceCode((current) => current || `ESP-${selected.code}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`);
+          setDeviceCode((current) => current || suggestedDeviceCode(selected.code));
         }
       }
     } catch (err) {
@@ -62,10 +64,11 @@ export default function DevicesPage() {
     setConfigured(false);
     const selected = machines.find((item) => item.id === value);
     setDeviceCode(selected && !devices.some((item) => item.machineId === value)
-      ? `ESP-${selected.code}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      ? suggestedDeviceCode(selected.code)
       : "");
     setHardwareSerial("");
     setError("");
+    setFormError("");
     setNotice("");
   }
 
@@ -74,16 +77,23 @@ export default function DevicesPage() {
     if (!canProvision || existing) return;
     setSaving(true);
     setError("");
+    setFormError("");
     try {
+      const code = normalizeDeviceCode(deviceCode);
+      if (code.length < 4 || code.length > 50) {
+        setFormError("O código da placa precisa ter entre 4 e 50 caracteres.");
+        return;
+      }
       const result = await request("/devices", {
         method: "POST",
-        body: JSON.stringify({ machineId, deviceCode: deviceCode.trim().toUpperCase(), hardwareSerial: hardwareSerial.trim() || undefined }),
+        body: JSON.stringify({ machineId, deviceCode: code, hardwareSerial: hardwareSerial.trim() || undefined }),
       });
+      setDeviceCode(code);
       setProvisioning(result.provisioning);
       setNotice("Identidade criada. Agora grave-a no ESP32 pela USB para concluir.");
       await load();
     } catch (err) {
-      setError(err.message);
+      setFormError(err.message === "Invalid" ? "Confira o código da placa: use apenas letras, números, hífen e _." : err.message);
     } finally {
       setSaving(false);
     }
@@ -167,9 +177,10 @@ export default function DevicesPage() {
       {canProvision && <section className="surface-panel guided-panel">
         <div className="guided-heading"><span className="guided-number">4</span><div><h2>{existing ? "Esta escavadeira já tem um ESP32 cadastrado" : "Cadastrar esta placa na escavadeira"}</h2><p>{existing ? "Não crie um cadastro duplicado. Se a placa já funciona, pule a troca de credencial. Se ela nunca foi configurada, use a opção de trocar credencial abaixo." : "O código identifica a placa no aplicativo e no painel. Anote-o na etiqueta física."}</p></div></div>
         {existing ? <div className="guided-existing"><Cpu size={20} /><div><strong>{existing.deviceCode}</strong><span>{existing.hardwareSerial || "Serial não informado"} · {existing.active ? "Ativo" : "Inativo"}</span></div>{!provisioning && <button type="button" onClick={reconfigure} disabled={saving}>Trocar credencial e configurar pela USB</button>}</div> : !provisioning ? <form className="guided-form" onSubmit={createDevice}>
-          <label><span>Código sugerido (pode alterar) *</span><input required minLength={4} maxLength={50} pattern="[A-Z0-9_-]+" placeholder="ESP-ESC-001" value={deviceCode} onChange={(event) => setDeviceCode(event.target.value.toUpperCase())} /></label>
+          <label><span>Código sugerido (pode alterar) *</span><input required minLength={4} maxLength={50} pattern="[A-Z0-9_-]+" title="Use letras, números, hífen e _. Espaços viram hífen." placeholder="ESP-ESC-001" value={deviceCode} onChange={(event) => { setDeviceCode(normalizeDeviceCode(event.target.value)); setFormError(""); }} /><small>Espaços no código da escavadeira são convertidos em hífens automaticamente.</small></label>
           <label><span>Serial da placa (opcional)</span><input minLength={4} maxLength={100} placeholder="Número escrito na placa, se houver" value={hardwareSerial} onChange={(event) => setHardwareSerial(event.target.value)} /></label>
           <button disabled={saving}>{saving ? "Cadastrando..." : "Cadastrar e continuar"}</button>
+          {formError && <p className="guided-form-error" role="alert">{formError}</p>}
         </form> : <p className="guided-success"><CheckCircle2 size={17} /> Dispositivo cadastrado. Ainda falta salvar a identidade na placa.</p>}
       </section>}
 

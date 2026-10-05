@@ -24,6 +24,7 @@ class AppCommunication {
   void update(TelemetryState& state);
   void publishTelemetry(const TelemetryState& state, bool importantEvent = false);
   bool queueRfid(const String& uid);
+  bool takeRfidRearmRequest() { return false; }
   bool hasCommand() const;
   AppCommand takeCommand();
   void acknowledgeExecuted(const String& commandId, const char* message);

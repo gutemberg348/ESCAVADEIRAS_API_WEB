@@ -20,7 +20,7 @@ const updateSchema = z.object({
   email: z.string().trim().email().max(254).transform(value => value.toLowerCase()).optional(),
   active: z.boolean().optional()
 }).refine(value => Object.keys(value).length > 0);
-const resetSchema = z.object({ password });
+const resetSchema = z.object({ password: z.string().min(1, 'Informe a nova senha.').max(128) });
 const userSelect = {
   id: true, companyId: true, name: true, email: true, role: true, active: true,
   avatarData: true, createdAt: true,

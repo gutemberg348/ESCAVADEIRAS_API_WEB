@@ -227,6 +227,10 @@ export default function BluetoothGateway({ session, machine, theme }) {
   async function connect(item) {
     setError('');
     setConnecting(true);
+    setConnected(false);
+    setConnectedMachineId(null);
+    setLatest(null);
+    setRfid('Aguardando leitura do cartão');
     manager.current?.stopDeviceScan();
     clearTimeout(scanTimer.current);
     setScanning(false);
@@ -242,11 +246,6 @@ export default function BluetoothGateway({ session, machine, theme }) {
         throw new Error('A conexão Bluetooth não negociou o pacote necessário. Tente reconectar.');
       }
       device = await device.discoverAllServicesAndCharacteristics();
-      await device.writeCharacteristicWithResponseForService(
-        BLE_SERVICE,
-        BLE_RX,
-        Buffer.from('HELLO').toString('base64'),
-      );
       const decode = createFrameDecoder((packet) => {
         processing.current = processing.current
           .then(async () => {
@@ -299,9 +298,14 @@ export default function BluetoothGateway({ session, machine, theme }) {
           setStatus('Bluetooth desconectado');
         }
       });
+      // Subscribe before HELLO rearms RFID, so the first read has a receiver.
+      await device.writeCharacteristicWithResponseForService(
+        BLE_SERVICE,
+        BLE_RX,
+        Buffer.from('HELLO').toString('base64'),
+      );
       setConnected(true);
       setConnectedMachineId(item.machine?.id || null);
-      setRfid('Aguardando leitura do cartão');
       setStatus(`Conectado a ${item.machine?.code || item.deviceCode}`);
       setDevices([]);
     } catch (err) {

@@ -29,7 +29,7 @@
 
 namespace Config {
 constexpr uint32_t SERIAL_BAUD = 115200;
-constexpr char FIRMWARE_VERSION[] = "3.0.0-ble";
+constexpr char FIRMWARE_VERSION[] = "3.0.1-ble";
 
 // GPS NEO-6M: somente o TX do GPS é utilizado, conectado ao RX2 do ESP32.
 constexpr int GPS_RX_PIN = 16;

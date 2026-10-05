@@ -57,17 +57,28 @@ try {
   assert.equal((await api('/auth/me', { token: managerToken })).status, 401);
   assert.equal((await api(`/users/${managerId}`, { token: adminToken, method: 'PATCH', body: { active: true } })).status, 200);
   assert.equal((await api('/auth/me', { token: managerToken })).status, 401);
-  assert.equal((await api(`/users/${managerId}/reset-password`, { token: adminToken, method: 'POST', body: { password: 'ManagerNew@123' } })).status, 204);
+  assert.equal((await api(`/users/${managerId}/reset-password`, { token: adminToken, method: 'POST', body: { password: '1' } })).status, 204);
   assert.equal((await api('/auth/me', { token: managerToken })).status, 401);
-  const relogin = await api('/auth/login', { method: 'POST', body: { email: managerEmail, password: 'ManagerNew@123' } });
+  const relogin = await api('/auth/login', { method: 'POST', body: { email: managerEmail, password: '1' } });
   assert.equal(relogin.status, 200);
   const updated = await api('/auth/me', { token: relogin.body.accessToken, method: 'PATCH', body: { name: 'Updated manager' } });
   assert.equal(updated.status, 200);
   assert.equal(updated.body.name, 'Updated manager');
-  assert.equal((await api('/auth/change-password', { token: relogin.body.accessToken, method: 'POST', body: { currentPassword: 'wrong', newPassword: 'ManagerFinal@123' } })).status, 401);
-  assert.equal((await api('/auth/change-password', { token: relogin.body.accessToken, method: 'POST', body: { currentPassword: 'ManagerNew@123', newPassword: 'ManagerFinal@123' } })).status, 204);
+  assert.equal((await api('/auth/change-password', { method: 'POST', body: { newPassword: '2' } })).status, 401);
+  assert.equal((await api('/auth/change-password', { token: relogin.body.accessToken, method: 'POST', body: { newPassword: '' } })).status, 400);
+  assert.equal((await api('/auth/change-password', { token: relogin.body.accessToken, method: 'POST', body: { newPassword: '2' } })).status, 204);
   assert.equal((await api('/auth/me', { token: relogin.body.accessToken })).status, 401);
+  assert.equal((await api('/auth/refresh', { method: 'POST', body: { refreshToken: relogin.body.refreshToken } })).status, 401);
+  assert.equal((await api('/auth/login', { method: 'POST', body: { email: managerEmail, password: '1' } })).status, 401);
+  const shortLogin = await api('/auth/login', { method: 'POST', body: { email: managerEmail, password: '2' } });
+  assert.equal(shortLogin.status, 200);
+  // Reusing the same password is allowed and still revokes previous sessions.
+  assert.equal((await api('/auth/change-password', { token: shortLogin.body.accessToken, method: 'POST', body: { newPassword: '2' } })).status, 204);
+  assert.equal((await api('/auth/me', { token: shortLogin.body.accessToken })).status, 401);
   console.log('User management, manager isolation, branding, and password invalidation: OK');
+} catch (error) {
+  console.error('User management verification failed:', error.message);
+  throw error;
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
   await prisma.$transaction(async tx => {
@@ -76,6 +87,6 @@ try {
     await tx.auditLog.deleteMany({ where: { userId: { in: userIds } } });
     await tx.user.deleteMany({ where: { id: { in: userIds } } });
     await tx.company.deleteMany({ where: { id: { in: [companyId, otherCompanyId] } } });
-  });
+  }, { timeout: 30000 });
   await prisma.$disconnect();
 }
