@@ -12,22 +12,47 @@ void GpsService::update(TelemetryState& state) {
   const bool valid = parser_.location.isValid() && parser_.location.age() <= Config::GPS_MAX_AGE_MS;
   state.gpsValid = valid;
   state.satellites = parser_.satellites.isValid() ? parser_.satellites.value() : 0;
-  state.speedKmh = parser_.speed.isValid() ? parser_.speed.kmph() : 0;
-  if (state.speedKmh < Config::GPS_STOP_SPEED_KMH) state.speedKmh = 0;
+  updateSpeed(state);
 
   if (!valid) {
     hasLastPosition_ = false;
     return;
   }
 
+  // lat()/lng() consume TinyGPSPlus's updated flag.
+  const bool newPosition = parser_.location.isUpdated();
   state.latitude = parser_.location.lat();
   state.longitude = parser_.location.lng();
-  if (parser_.location.isUpdated()) updateDistance(state);
+  if (newPosition) updateDistance(state);
+}
+
+void GpsService::updateSpeed(TelemetryState& state) {
+  if (!state.gpsValid || !parser_.speed.isValid() || parser_.speed.age() > Config::GPS_MAX_AGE_MS) {
+    moving_ = false;
+    startSamples_ = 0;
+    state.speedKmh = 0;
+    return;
+  }
+  // Count GPS measurements, not the thousands of loop() calls between them.
+  if (!parser_.speed.isUpdated()) return;
+  const float rawSpeed = parser_.speed.kmph();
+  if (!isfinite(rawSpeed) || rawSpeed <= Config::GPS_STOP_SPEED_KMH) {
+    moving_ = false;
+    startSamples_ = 0;
+    state.speedKmh = 0;
+    return;
+  }
+  if (!moving_) {
+    if (rawSpeed >= Config::GPS_START_SPEED_KMH) ++startSamples_;
+    else startSamples_ = 0;
+    moving_ = startSamples_ >= Config::GPS_START_SAMPLES;
+  }
+  state.speedKmh = moving_ ? rawSpeed : 0;
 }
 
 void GpsService::updateDistance(TelemetryState& state) {
   const uint32_t now = millis();
-  if (hasLastPosition_ && state.speedKmh >= Config::GPS_STOP_SPEED_KMH) {
+  if (hasLastPosition_ && state.speedKmh > 0) {
     const double segmentMeters = TinyGPSPlus::distanceBetween(
       lastLatitude_, lastLongitude_, state.latitude, state.longitude
     );

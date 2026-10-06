@@ -3,6 +3,23 @@
 #include <string>
 #include <algorithm>
 #include <cstdio>
+#include <cmath>
+#include <deque>
+using std::max;
+using std::isfinite;
+constexpr double TWO_PI = 6.28318530717958647692;
+inline double radians(double value) { return value * TWO_PI / 360.0; }
+inline double degrees(double value) { return value * 360.0 / TWO_PI; }
+inline double sq(double value) { return value * value; }
+constexpr int SERIAL_8N1 = 0;
+class HardwareSerial {
+ public:
+  inline static std::deque<char> input;
+  explicit HardwareSerial(int) {}
+  void begin(uint32_t, int, int, int) {}
+  int available() const { return static_cast<int>(input.size()); }
+  int read() { const char value = input.front(); input.pop_front(); return value; }
+};
 using byte = uint8_t;
 constexpr int OUTPUT = 1, LOW = 0, HIGH = 1, HEX = 16;
 inline uint32_t clockMs = 0;

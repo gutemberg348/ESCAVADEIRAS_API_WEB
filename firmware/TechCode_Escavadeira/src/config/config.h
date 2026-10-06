@@ -29,13 +29,15 @@
 
 namespace Config {
 constexpr uint32_t SERIAL_BAUD = 115200;
-constexpr char FIRMWARE_VERSION[] = "3.0.1-ble";
+constexpr char FIRMWARE_VERSION[] = "3.0.2-ble";
 
 // GPS NEO-6M: somente o TX do GPS é utilizado, conectado ao RX2 do ESP32.
 constexpr int GPS_RX_PIN = 16;
 constexpr int GPS_TX_UNUSED = -1;
 constexpr uint32_t GPS_BAUD = 9600;
-constexpr float GPS_STOP_SPEED_KMH = 1.0F;
+constexpr float GPS_STOP_SPEED_KMH = 3.0F;
+constexpr float GPS_START_SPEED_KMH = 4.0F;
+constexpr uint8_t GPS_START_SAMPLES = 3;
 constexpr uint32_t GPS_MAX_AGE_MS = 5000;
 
 // MFRC522 (SPI).

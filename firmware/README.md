@@ -90,7 +90,8 @@ GPIO34 e GPIO35 são somente entrada, apropriados para os sensores. Nunca apliqu
 ## Medições
 
 - GPS inválido nunca acumula distância.
-- Velocidade abaixo de 1 km/h é tratada como zero.
+- Firmware 3.0.2: velocidade de até 3 km/h é tratada como zero para filtrar a oscilação com a máquina parada. Para sair de zero, são necessárias três leituras novas consecutivas de pelo menos 4 km/h; durante movimento confirmado, valores acima de 3 km/h continuam sendo exibidos. Uma leitura de até 3 km/h volta a zero.
+- Sem posição válida ou com velocidade sem atualização por mais de cinco segundos, a velocidade é zerada e a confirmação de movimento reinicia. A faixa filtrada também não acumula distância. Deslocamentos reais muito lentos ficam ocultos por esse filtro; não é uma calibração física do receptor.
 - Saltos de posição incompatíveis com tempo/velocidade são descartados.
 - O divisor de tensão inicia com fator 5,0 e multiplicador de calibração 1,0.
 - O ACS758 informa ADC bruto e tensão do OUT1.
